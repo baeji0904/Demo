@@ -5,7 +5,9 @@
   { "title": "체스",     "url": "games/chess.html",    "thumb": "", "tags": ["보드","AI"],  "desc": "체크/메이트/승격" },
   { "title": "장기",     "url": "games/janggi.html",    "thumb": "", "tags": ["보드","AI"],  "desc": "장군" },
   { "title": "테트리스", "url": "games/tetris.html",   "thumb": "", "tags": ["퍼즐"],       "desc": "레벨·핸디캡" },
+  { "title": "지뢰찾기", "url": "games/Minesweeper.html",   "thumb": "", "tags": ["퍼즐"],       "desc": "레벨 상/중/하" },  
   { "title": "2048",     "url": "games/2048.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "실행취소/음소거" },
   { "title": "갤러그",   "url": "games/galaga.html",   "thumb": "", "tags": ["슈팅"],       "desc": "다이브/재합류" }
 ]
+
 
