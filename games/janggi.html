@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>장기 Demo (AI + 마/상 차림 선택)</title>
+  <style>
+    :root{
+      --bg:#0e1220; --ink:#e9edff; --muted:#9aa3c8;
+      --panel:#171a2f; --accent:#7aa2ff;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;padding:0;
+      background:var(--bg);color:var(--ink);
+      font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto;
+    }
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
+    header{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+    h1{font-size:22px;margin:0}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .panel{
+      background:var(--panel);
+      border:1px solid #242a49;
+      border-radius:16px;
+      padding:12px;
+      box-shadow:0 8px 24px rgba(0,0,0,.25);
+      position:relative;
+    }
+    .btn{
+      padding:8px 12px;
+      border:1px solid #2a315e;
+      border-radius:12px;
+      background:#1b2145;
+      color:var(--ink);
+      cursor:pointer;
+      font-size:14px;
+    }
+    .btn-primary{
+      background:linear-gradient(180deg,#2e4cff,#2337a7);
+      border-color:#3a50ff;
+    }
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .tag{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:6px 10px;
+      border:1px solid #2b325c;
+      border-radius:999px;
+      color:var(--muted);
+      font-size:13px;
+    }
+    select{
+      background:#121632;
+      border:1px solid #2b325c;
+      border-radius:10px;
+      color:var(--ink);
+      padding:4px 8px;
+      font-size:13px;
+    }
+    canvas{
+      width:100%;
+      max-width:760px;
+      height:auto;
+      background:#0b0f1e;
+      border:1px solid #222747;
+      border-radius:12px;
+      touch-action:none;
+      display:block;
+      margin:0 auto;
+    }
+    .hint{font-size:13px;color:var(--muted);margin-top:6px}
+    .sr-only{
+      position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+      overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+    }
+    .banner{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+    }
+    .banner > div{
+      background:rgba(0,0,0,.55);
+      border:1px solid #2b325c;
+      padding:10px 14px;
+      border-radius:12px;
+      color:#e9edff;
+      pointer-events:auto;
+    }
+    .pill{
+      display:none;
+      margin-top:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid #2b325c;
+      background:#121632;
+      font-size:13px;
+      color:var(--muted);
+      width:max-content;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>장기 Demo</h1>
+    <div class="row">
+      <span class="tag">차례: <strong id="turnText">초(파랑)</strong></span>
+
+      <label class="tag">
+        모드
+        <select id="mode">
+          <option value="hh">2인 로컬</option>
+          <option value="hcho">1인 vs 컴퓨터 (내가 초)</option>
+          <option value="hhan">1인 vs 컴퓨터 (내가 한)</option>
+        </select>
+      </label>
+
+      <label class="tag">
+        레벨
+        <select id="difficulty">
+          <option value="1">Lv 1 (빠른)</option>
+          <option value="2" selected>Lv 2 (보통)</option>
+          <option value="3">Lv 3 (더 깊게)</option>
+        </select>
+      </label>
+
+      <label class="tag">
+        초 마/상
+        <select id="pattern-cho">
+          <option value="0">마 상 상 마</option>
+          <option value="1">마 상 마 상</option>
+          <option value="2">상 마 상 마</option>
+          <option value="3">상 마 마 상</option>
+        </select>
+      </label>
+
+      <label class="tag">
+        한 마/상
+        <select id="pattern-han">
+          <option value="0">마 상 상 마</option>
+          <option value="1">마 상 마 상</option>
+          <option value="2">상 마 상 마</option>
+          <option value="3">상 마 마 상</option>
+        </select>
+      </label>
+
+      <button id="btn-new" class="btn btn-primary">새 게임</button>
+      <button id="btn-undo" class="btn">무르기</button>
+      <button id="btn-flip" class="btn">시점 뒤집기</button>
+    </div>
+  </header>
+
+  <div class="panel">
+    <canvas id="board" width="760" height="840" aria-label="Janggi board"></canvas>
+    <div class="banner" id="gameover">
+      <div id="gameover-text">게임 종료</div>
+    </div>
+    <div class="hint">
+      말을 클릭하면 <b>이동 가능한 칸이 초록색 링</b>으로 표시됩니다.<br/>
+      - 왕(漢/楚): 각 진영 궁 안에서 상/하/좌/우/대각 1칸 (궁 중앙 교차점에서 시작)<br/>
+      - 사(士): 궁 안에서 왕과 동일하게 상/하/좌/우/대각 1칸<br/>
+      - 병/졸: 앞으로/좌우 1칸, 적 궁 안에서는 앞 대각 1칸(팔 선) 이동 가능<br/>
+      - 상: 1칸 직선 + 2칸 대각 (총 (3,2) 또는 (2,3)), 중간 2칸 막히면 이동 불가<br/>
+      - 포: 스크린(중간 말) 하나를 뛰어넘어서만 이동/공격 (스크린 없으면 못 움직임)
+    </div>
+    <div id="aiHint" class="pill">컴퓨터 생각 중...</div>
+    <div id="status" class="hint" style="margin-top:6px">초(파랑)가 먼저 둡니다.</div>
+  </div>
+
+  <div id="aria-live" class="sr-only" aria-live="polite"></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ===== 기본 상수/요소 =====
+  const cvs = document.getElementById('board');
+  const ctx = cvs.getContext('2d');
+  const DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+  const turnEl = document.getElementById('turnText');
+  const statEl = document.getElementById('status');
+  const liveEl = document.getElementById('aria-live');
+
+  const btnNew  = document.getElementById('btn-new');
+  const btnUndo = document.getElementById('btn-undo');
+  const btnFlip = document.getElementById('btn-flip');
+  const modeSel = document.getElementById('mode');
+  const diffSel = document.getElementById('difficulty');
+  const patternChoSel = document.getElementById('pattern-cho');
+  const patternHanSel = document.getElementById('pattern-han');
+  const aiHintEl = document.getElementById('aiHint');
+  const bannerEl = document.getElementById('gameover');
+  const bannerTextEl = document.getElementById('gameover-text');
+
+  const COLS = 9;
+  const ROWS = 10;
+
+  const SIDE = { HAN: 1, CHO: -1 };
+
+  const TYPE = {
+    GENERAL:'g',
+    GUARD:'a',
+    ELEPHANT:'e',
+    HORSE:'h',
+    CHARIOT:'r',
+    CANNON:'c',
+    SOLDIER:'s'
+  };
+
+  const LABEL = {
+    [TYPE.GENERAL]: { [SIDE.HAN]:'漢', [SIDE.CHO]:'楚' },
+    [TYPE.GUARD]:   { [SIDE.HAN]:'士', [SIDE.CHO]:'士' },
+    [TYPE.ELEPHANT]:{ [SIDE.HAN]:'象', [SIDE.CHO]:'象' },
+    [TYPE.HORSE]:   { [SIDE.HAN]:'馬', [SIDE.CHO]:'馬' },
+    [TYPE.CHARIOT]: { [SIDE.HAN]:'車', [SIDE.CHO]:'車' },
+    [TYPE.CANNON]:  { [SIDE.HAN]:'包', [SIDE.CHO]:'包' },
+    [TYPE.SOLDIER]: { [SIDE.HAN]:'兵', [SIDE.CHO]:'卒' }
+  };
+
+  const PIECE_COLOR = {
+    [SIDE.HAN]: '#f97373',
+    [SIDE.CHO]: '#7aa2ff'
+  };
+
+  const PIECE_VALUE = {
+    [TYPE.GENERAL]: 15000,
+    [TYPE.GUARD]:     70,
+    [TYPE.ELEPHANT]: 120,
+    [TYPE.HORSE]:    130,
+    [TYPE.CHARIOT]:  300,
+    [TYPE.CANNON]:   220,
+    [TYPE.SOLDIER]:   60
+  };
+
+  // ===== 상태 =====
+  let board = null;
+  let turn = SIDE.CHO;
+  let selected = null;
+  let lastMove = null;
+  let flipped = false;
+  let history = [];
+  let geom = { padX:30, padY:30, cellX:60, cellY:60 };
+
+  let mode = 'hh';    // 'hh', 'hcho', 'hhan'
+  let aiDepth = 2;
+  let gameOver = false;
+  let winner = null;
+
+  // ===== 유틸 =====
+  function cloneBoard(src){
+    return src.map(row => row.map(p => p ? {side:p.side, type:p.type} : null));
+  }
+  function setStatus(msg, holdMs){
+    statEl.textContent = msg;
+    liveEl.textContent = msg;
+    if(holdMs !== -1){
+      clearTimeout(setStatus._t);
+      setStatus._t = setTimeout(()=>{
+        if(statEl.textContent === msg) statEl.textContent = '—';
+      }, holdMs || 2000);
+    }
+  }
+  function updateTurnText(){
+    if(gameOver){
+      turnEl.textContent = '—';
+    }else{
+      turnEl.textContent = (turn === SIDE.CHO ? '초(파랑)' : '한(빨강)');
+    }
+  }
+
+  function showGameOver(msg){
+    gameOver = true;
+    bannerTextEl.textContent = msg;
+    bannerEl.style.display = 'flex';
+    setStatus(msg, -1);
+    updateTurnText();
+  }
+  function hideGameOver(){
+    gameOver = false;
+    winner = null;
+    bannerEl.style.display = 'none';
+    updateTurnText();
+  }
+
+  function isAITurn(){
+    if(gameOver) return false;
+    if(mode === 'hh') return false;
+    const aiSide = (mode === 'hcho') ? SIDE.HAN : SIDE.CHO;
+    return turn === aiSide;
+  }
+
+  function viewToModel(col,row){
+    if(!flipped) return {x:col,y:row};
+    return {x:COLS-1-col, y:ROWS-1-row};
+  }
+  function modelToView(x,y){
+    if(!flipped) return {col:x,row:y};
+    return {col:COLS-1-x, row:ROWS-1-y};
+  }
+
+  function coordFromEvent(ev){
+    const rect = cvs.getBoundingClientRect();
+    const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    const { padX, padY, cellX, cellY } = geom;
+    const col = Math.round((px - padX) / cellX);
+    const row = Math.round((py - padY) / cellY);
+    if(col < 0 || col >= COLS || row < 0 || row >= ROWS) return null;
+
+    const gx = padX + col * cellX;
+    const gy = padY + row * cellY;
+    const dist = Math.hypot(px - gx, py - gy);
+    const maxSnap = Math.min(cellX, cellY) * 0.45;
+    if(dist > maxSnap) return null;
+
+    return { col, row };
+  }
+
+  // ===== 판/궁 관련 =====
+  function inBounds(x,y){
+    return x>=0 && x<COLS && y>=0 && y<ROWS;
+  }
+
+  function inPalace(side,x,y){
+    const cMin = 3, cMax = 5;
+    if(x < cMin || x > cMax) return false;
+    if(side === SIDE.CHO){
+      return (y >= 0 && y <= 2);
+    }else{
+      return (y >= 7 && y <= 9);
+    }
+  }
+
+  function isPalaceDiagonalEdge(x1,y1,x2,y2){
+    const dx = Math.abs(x2 - x1);
+    const dy = Math.abs(y2 - y1);
+    if(dx !== 1 || dy !== 1) return false;
+
+    const topCenter = (x1===4 && y1===1) || (x2===4 && y2===1);
+    const botCenter = (x1===4 && y1===8) || (x2===4 && y2===8);
+
+    if(!topCenter && !botCenter) return false;
+
+    const bothTop = inPalace(SIDE.CHO,x1,y1) && inPalace(SIDE.CHO,x2,y2);
+    const bothBot = inPalace(SIDE.HAN,x1,y1) && inPalace(SIDE.HAN,x2,y2);
+    return bothTop || bothBot;
+  }
+
+  // ===== 초기 배치 (마/상 패턴 적용) =====
+  function makeEmptyBoard(){
+    return Array.from({length:ROWS}, ()=> Array(COLS).fill(null));
+  }
+
+  function setupInitialPosition(){
+    const b = makeEmptyBoard();
+
+    // 마/상 패턴 정의: [col1, col2, col7, col8] (인덱스 1,2,6,7)
+    const patterns = [
+      [TYPE.HORSE,    TYPE.ELEPHANT, TYPE.ELEPHANT, TYPE.HORSE],   // 마 상 상 마
+      [TYPE.HORSE,    TYPE.ELEPHANT, TYPE.HORSE,    TYPE.ELEPHANT],// 마 상 마 상
+      [TYPE.ELEPHANT, TYPE.HORSE,    TYPE.ELEPHANT, TYPE.HORSE],   // 상 마 상 마
+      [TYPE.ELEPHANT, TYPE.HORSE,    TYPE.HORSE,    TYPE.ELEPHANT] // 상 마 마 상
+    ];
+
+    function backRank(side, row, patternIdx){
+      const p4 = patterns[patternIdx] || patterns[0];
+      const pieces = new Array(COLS);
+      pieces[0] = TYPE.CHARIOT;
+      pieces[1] = p4[0];
+      pieces[2] = p4[1];
+      pieces[3] = TYPE.GUARD;
+      pieces[4] = TYPE.GENERAL;
+      pieces[5] = TYPE.GUARD;
+      pieces[6] = p4[2];
+      pieces[7] = p4[3];
+      pieces[8] = TYPE.CHARIOT;
+      for(let c=0;c<COLS;c++){
+        b[row][c] = {side, type:pieces[c]};
+      }
+    }
+
+    function cannonRank(side, row){
+      b[row][1] = {side, type:TYPE.CANNON};
+      b[row][7] = {side, type:TYPE.CANNON};
+    }
+
+    function soldierRank(side, row){
+      for(let c=0;c<COLS;c+=2){
+        b[row][c] = {side, type:TYPE.SOLDIER};
+      }
+    }
+
+    const patternCho = parseInt(patternChoSel.value,10) || 0;
+    const patternHan = parseInt(patternHanSel.value,10) || 0;
+
+    // 초 (위)
+    backRank(SIDE.CHO, 0, patternCho);
+    cannonRank(SIDE.CHO, 2);
+    soldierRank(SIDE.CHO, 3);
+
+    // 한 (아래)
+    backRank(SIDE.HAN, 9, patternHan);
+    cannonRank(SIDE.HAN, 7);
+    soldierRank(SIDE.HAN, 6);
+
+    // 왕을 각 궁 중앙으로 이동
+    // 초 왕: (4,0) → (4,1)
+    b[0][4] = null;
+    b[1][4] = { side: SIDE.CHO, type: TYPE.GENERAL };
+    // 한 왕: (4,9) → (4,8)
+    b[9][4] = null;
+    b[8][4] = { side: SIDE.HAN, type: TYPE.GENERAL };
+
+    return b;
+  }
+
+  // ===== 말 이동 규칙 =====
+  function canMoveTo(board, x, y, side){
+    if(!inBounds(x,y)) return false;
+    const t = board[y][x];
+    if(t && t.side === side) return false;
+    return true;
+  }
+
+  function getGeneralMoves(board,x,y,piece){
+    const side = piece.side;
+    const dirs = [
+      [ 1, 0],[-1, 0],[0, 1],[0,-1],
+      [ 1, 1],[ 1,-1],[-1, 1],[-1,-1]
+    ];
+    const moves = [];
+    for(const [dx,dy] of dirs){
+      const nx = x+dx, ny = y+dy;
+      if(!inBounds(nx,ny)) continue;
+      if(!inPalace(side,nx,ny)) continue;
+      if(!canMoveTo(board,nx,ny,side)) continue;
+      moves.push({x:nx,y:ny});
+    }
+    return moves;
+  }
+
+  function getGuardMoves(board,x,y,piece){
+    const side = piece.side;
+    const dirs = [
+      [ 1, 0],[-1, 0],[0, 1],[0,-1],
+      [ 1, 1],[ 1,-1],[-1, 1],[-1,-1]
+    ];
+    const moves = [];
+    for(const [dx,dy] of dirs){
+      const nx = x+dx, ny = y+dy;
+      if(!inBounds(nx,ny)) continue;
+      if(!inPalace(side,nx,ny)) continue;
+      if(!canMoveTo(board,nx,ny,side)) continue;
+      moves.push({x:nx,y:ny});
+    }
+    return moves;
+  }
+
+  function getChariotMoves(board,x,y,piece){
+    const side = piece.side;
+    const moves = [];
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for(const [dx,dy] of dirs){
+      let nx = x+dx, ny = y+dy;
+      while(inBounds(nx,ny)){
+        const t = board[ny][nx];
+        if(!t){
+          moves.push({x:nx,y:ny});
+        }else{
+          if(t.side !== side) moves.push({x:nx,y:ny});
+          break;
+        }
+        nx += dx;
+        ny += dy;
+      }
+    }
+    return moves;
+  }
+
+  function getHorseMoves(board,x,y,piece){
+    const side = piece.side;
+    const moves = [];
+    const legDirs = [
+      {leg:[ 1,0], diag:[[1,1],[1,-1]]},
+      {leg:[-1,0], diag:[[-1,1],[-1,-1]]},
+      {leg:[0, 1], diag:[[1,1],[-1,1]]},
+      {leg:[0,-1], diag:[[1,-1],[-1,-1]]}
+    ];
+    for(const {leg,diag} of legDirs){
+      const [lx,ly] = leg;
+      const legX = x+lx, legY = y+ly;
+      if(!inBounds(legX,legY)) continue;
+      if(board[legY][legX]) continue;
+      for(const [dx2,dy2] of diag){
+        const nx = x+lx+dx2, ny = y+ly+dy2;
+        if(!inBounds(nx,ny)) continue;
+        if(!canMoveTo(board,nx,ny,side)) continue;
+        moves.push({x:nx,y:ny});
+      }
+    }
+    return moves;
+  }
+
+  function getElephantMoves(board,x,y,piece){
+    const side = piece.side;
+    const moves = [];
+    const patterns = [
+      { s1:[ 1, 0], s2:[ 2, 1], end:[ 3, 2] },
+      { s1:[ 1, 0], s2:[ 2,-1], end:[ 3,-2] },
+      { s1:[-1, 0], s2:[-2, 1], end:[-3, 2] },
+      { s1:[-1, 0], s2:[-2,-1], end:[-3,-2] },
+      { s1:[ 0,-1], s2:[ 1,-2], end:[ 2,-3] },
+      { s1:[ 0,-1], s2:[-1,-2], end:[-2,-3] },
+      { s1:[ 0, 1], s2:[ 1, 2], end:[ 2, 3] },
+      { s1:[ 0, 1], s2:[-1, 2], end:[-2, 3] }
+    ];
+    for(const p of patterns){
+      const s1x = x + p.s1[0], s1y = y + p.s1[1];
+      const s2x = x + p.s2[0], s2y = y + p.s2[1];
+      const ex  = x + p.end[0], ey  = y + p.end[1];
+      if(!inBounds(s1x,s1y) || !inBounds(s2x,s2y) || !inBounds(ex,ey)) continue;
+      if(board[s1y][s1x] || board[s2y][s2x]) continue;
+      if(!canMoveTo(board,ex,ey,side)) continue;
+      moves.push({x:ex,y:ey});
+    }
+    return moves;
+  }
+
+  function getCannonMoves(board,x,y,piece){
+    const side = piece.side;
+    const moves = [];
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+
+    for(const [dx,dy] of dirs){
+      let nx = x+dx, ny = y+dy;
+      let screenCount = 0;
+
+      while(inBounds(nx,ny)){
+        const t = board[ny][nx];
+
+        if(t && t.type === TYPE.CANNON){
+          break;
+        }
+
+        if(!t){
+          if(screenCount === 1){
+            moves.push({x:nx,y:ny});
+          }
+        }else{
+          if(screenCount === 0){
+            screenCount = 1;
+          }else if(screenCount === 1){
+            if(t.side !== side){
+              moves.push({x:nx,y:ny});
+            }
+            break;
+          }
+        }
+
+        nx += dx;
+        ny += dy;
+      }
+    }
+    return moves;
+  }
+
+  function getSoldierMoves(board,x,y,piece){
+    const side = piece.side;
+    const moves = [];
+    const forward = (side === SIDE.CHO) ? 1 : -1;
+    const enemySide = -side;
+
+    const fx = x;
+    const fy = y + forward;
+    if(inBounds(fx,fy) && canMoveTo(board,fx,fy,side)){
+      moves.push({x:fx,y:fy});
+    }
+
+    const lx = x-1, rx = x+1;
+    if(inBounds(lx,y) && canMoveTo(board,lx,y,side)){
+      moves.push({x:lx,y:y});
+    }
+    if(inBounds(rx,y) && canMoveTo(board,rx,y,side)){
+      moves.push({x:rx,y:y});
+    }
+
+    const diagCandidates = [
+      {dx:-1, dy:forward},
+      {dx: 1, dy:forward}
+    ];
+    for(const d of diagCandidates){
+      const tx = x + d.dx;
+      const ty = y + d.dy;
+      if(!inBounds(tx,ty)) continue;
+      if(inPalace(enemySide,x,y) && inPalace(enemySide,tx,ty) &&
+         isPalaceDiagonalEdge(x,y,tx,ty) &&
+         canMoveTo(board,tx,ty,side)){
+        moves.push({x:tx,y:ty});
+      }
+    }
+
+    return moves;
+  }
+
+  function getLegalMoves(board,x,y,piece){
+    if(!piece) return [];
+    switch(piece.type){
+      case TYPE.GENERAL:  return getGeneralMoves(board,x,y,piece);
+      case TYPE.GUARD:    return getGuardMoves(board,x,y,piece);
+      case TYPE.CHARIOT:  return getChariotMoves(board,x,y,piece);
+      case TYPE.HORSE:    return getHorseMoves(board,x,y,piece);
+      case TYPE.ELEPHANT: return getElephantMoves(board,x,y,piece);
+      case TYPE.CANNON:   return getCannonMoves(board,x,y,piece);
+      case TYPE.SOLDIER:  return getSoldierMoves(board,x,y,piece);
+    }
+    return [];
+  }
+
+  // ===== 렌더링 =====
+  function fitCanvas(){
+    const cssW = cvs.clientWidth;
+    const targetRatio = ROWS / COLS;
+    cvs.width  = Math.floor(cssW * DPR);
+    cvs.height = Math.floor(cssW * targetRatio * DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+
+  function draw(){
+    const w = cvs.width / DPR;
+    const h = cvs.height / DPR;
+    const padX = 40;
+    const padY = 40;
+
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = '#141a33';
+    ctx.fillRect(0,0,w,h);
+
+    const boardW = w - padX*2;
+    const boardH = h - padY*2;
+    const cellX = boardW / (COLS-1);
+    const cellY = boardH / (ROWS-1);
+    geom = { padX, padY, cellX, cellY };
+
+    // 판 바탕
+    ctx.save();
+    ctx.fillStyle = '#2b2a1f';
+    ctx.globalAlpha = 0.25;
+    ctx.fillRect(padX-16, padY-16, boardW+32, boardH+32);
+    ctx.restore();
+
+    // 격자
+    ctx.strokeStyle = '#c6a264';
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.9;
+    for(let c=0;c<COLS;c++){
+      const x = padX + c*cellX;
+      ctx.beginPath();
+      ctx.moveTo(x, padY);
+      ctx.lineTo(x, padY + boardH);
+      ctx.stroke();
+    }
+    for(let r=0;r<ROWS;r++){
+      const y = padY + r*cellY;
+      ctx.beginPath();
+      ctx.moveTo(padX, y);
+      ctx.lineTo(padX + boardW, y);
+      ctx.stroke();
+    }
+
+    // 궁 X자
+    ctx.globalAlpha = 0.9;
+    function drawPalace(topRow){
+      const centerCol = 4;
+      const r0 = topRow;
+      const r2 = topRow + 2;
+      const c0 = 3;
+      const c2 = 5;
+      const cx = padX + centerCol*cellX;
+      const cy = padY + (topRow+1)*cellY;
+      const tlx = padX + c0*cellX, tly = padY + r0*cellY;
+      const trx = padX + c2*cellX, try_ = padY + r0*cellY;
+      const blx = padX + c0*cellX, bly = padY + r2*cellY;
+      const brx = padX + c2*cellX, bry = padY + r2*cellY;
+
+      ctx.beginPath();
+      ctx.moveTo(tlx,tly); ctx.lineTo(cx,cy); ctx.lineTo(brx,bry);
+      ctx.moveTo(trx,try_); ctx.lineTo(cx,cy); ctx.lineTo(blx,bly);
+      ctx.stroke();
+    }
+    drawPalace(0);
+    drawPalace(ROWS-3);
+
+    // 마지막 수
+    if(lastMove){
+      ctx.save();
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = '#7aa2ff';
+      let v = modelToView(lastMove.from.x, lastMove.from.y);
+      let x1 = padX + v.col*cellX;
+      let y1 = padY + v.row*cellY;
+      ctx.beginPath();
+      ctx.arc(x1,y1, Math.min(cellX,cellY)*0.35, 0, Math.PI*2);
+      ctx.fill();
+      v = modelToView(lastMove.to.x, lastMove.to.y);
+      x1 = padX + v.col*cellX;
+      y1 = padY + v.row*cellY;
+      ctx.beginPath();
+      ctx.arc(x1,y1, Math.min(cellX,cellY)*0.35, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 선택된 말 & 이동 가능 칸
+    if(selected){
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#10b981';
+      const v = modelToView(selected.x, selected.y);
+      const sx = padX + v.col*cellX;
+      const sy = padY + v.row*cellY;
+      ctx.beginPath();
+      ctx.arc(sx,sy, Math.min(cellX,cellY)*0.4, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = 0.75;
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 2;
+      for(const mv of selected.moves || []){
+        const vv = modelToView(mv.x, mv.y);
+        const mx = padX + vv.col*cellX;
+        const my = padY + vv.row*cellY;
+        const r = Math.min(cellX,cellY)*0.23;
+        ctx.beginPath();
+        ctx.arc(mx,my,r,0,Math.PI*2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 말 그리기
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        const p = board[y][x];
+        if(!p) continue;
+        const v = modelToView(x,y);
+        const cxPos = padX + v.col*cellX;
+        const cyPos = padY + v.row*cellY;
+        const radius = Math.min(cellX,cellY)*0.33;
+
+        const grad = ctx.createRadialGradient(
+          cxPos-radius*0.3, cyPos-radius*0.3, radius*0.2,
+          cxPos, cyPos, radius
+        );
+        grad.addColorStop(0, '#f5f5f5');
+        grad.addColorStop(1, '#d0d0d0');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cxPos, cyPos, radius, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.stroke();
+
+        const color = PIECE_COLOR[p.side] || '#ffffff';
+        ctx.fillStyle = color;
+        ctx.font = (radius*1.2).toFixed(0) + 'px "Noto Sans KR", system-ui';
+        const ch = (LABEL[p.type] && LABEL[p.type][p.side]) || '?';
+        ctx.fillText(ch, cxPos, cyPos+1);
+      }
+    }
+  }
+
+  // ===== AI 평가/검색 =====
+  function makeSimSnapshot(){
+    return {
+      board: cloneBoard(board),
+      turn: turn
+    };
+  }
+  function restoreSimSnapshot(s){
+    board = cloneBoard(s.board);
+    turn = s.turn;
+  }
+
+  function applyMoveSim(m){
+    const piece = board[m.fromY][m.fromX];
+    board[m.fromY][m.fromX] = null;
+    board[m.toY][m.toX] = piece;
+    turn = -turn;
+  }
+
+  function evaluateBoard(){
+    let score = 0;
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        const p = board[y][x];
+        if(!p) continue;
+        const v = PIECE_VALUE[p.type] || 0;
+        score += v * p.side; // 한은 +, 초는 -
+      }
+    }
+    // 활동성 보너스
+    let mobCho = 0, mobHan = 0;
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        const p = board[y][x];
+        if(!p) continue;
+        const moves = getLegalMoves(board,x,y,p);
+        if(p.side === SIDE.CHO) mobCho += moves.length;
+        else mobHan += moves.length;
+      }
+    }
+    score += (mobHan - mobCho) * 2;
+    return score;
+  }
+
+  function getAllLegalMoves(side){
+    const moves = [];
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        const p = board[y][x];
+        if(!p || p.side !== side) continue;
+        const legals = getLegalMoves(board,x,y,p);
+        for(const mv of legals){
+          moves.push({fromX:x,fromY:y,toX:mv.x,toY:mv.y});
+        }
+      }
+    }
+    return moves;
+  }
+
+  function negamax(side, depth, alpha, beta){
+    if(depth === 0){
+      return (side === SIDE.HAN ? 1 : -1) * evaluateBoard();
+    }
+    const moves = getAllLegalMoves(side);
+    if(moves.length === 0){
+      return -999999;
+    }
+    let best = -Infinity;
+    for(const m of moves){
+      const snap = makeSimSnapshot();
+      applyMoveSim(m);
+      const val = -negamax(-side, depth-1, -beta, -alpha);
+      restoreSimSnapshot(snap);
+      if(val > best) best = val;
+      if(best > alpha) alpha = best;
+      if(alpha >= beta) break;
+    }
+    return best;
+  }
+
+  function findBestMove(side, depth){
+    const moves = getAllLegalMoves(side);
+    if(moves.length === 0) return null;
+    let bestMove = null;
+    let bestVal = -Infinity;
+    for(const m of moves){
+      const snap = makeSimSnapshot();
+      applyMoveSim(m);
+      const val = -negamax(-side, depth-1, -Infinity, Infinity);
+      restoreSimSnapshot(snap);
+      if(val > bestVal){
+        bestVal = val;
+        bestMove = m;
+      }
+    }
+    return bestMove;
+  }
+
+  // ===== 실제 수 적용 =====
+  function performMove(fromX, fromY, toX, toY, isAI){
+    const movingPiece = board[fromY][fromX];
+    const captured = board[toY][toX] || null;
+
+    history.push({
+      board: cloneBoard(board),
+      turn: turn,
+      lastMove: lastMove ? {from:{...lastMove.from}, to:{...lastMove.to}} : null,
+      gameOver: gameOver,
+      winner: winner
+    });
+
+    board[fromY][fromX] = null;
+    board[toY][toX] = movingPiece;
+    lastMove = {from:{x:fromX,y:fromY}, to:{x:toX,y:toY}};
+
+    if(captured && captured.type === TYPE.GENERAL){
+      winner = movingPiece.side;
+      const msg = (winner === SIDE.CHO ? '초가 승리했습니다! (장군 포획)' : '한이 승리했습니다! (장군 포획)');
+      showGameOver(msg);
+    }else{
+      gameOver = false;
+    }
+
+    turn = -turn;
+    updateTurnText();
+    setStatus(isAI ? '컴퓨터가 한 수 뒀습니다.' : '말을 옮겼습니다.');
+    draw();
+
+    if(!gameOver){
+      maybeAIMove();
+    }
+  }
+
+  function maybeAIMove(){
+    if(!isAITurn()) return;
+    aiHintEl.style.display = 'inline-flex';
+    setStatus('컴퓨터 생각 중...', -1);
+    const side = (mode === 'hcho') ? SIDE.HAN : SIDE.CHO;
+    const depth = aiDepth;
+
+    setTimeout(()=>{
+      const best = findBestMove(side, depth);
+      aiHintEl.style.display = 'none';
+      if(best){
+        performMove(best.fromX, best.fromY, best.toX, best.toY, true);
+      }else{
+        setStatus('컴퓨터가 둘 수 있는 수가 없습니다.', -1);
+      }
+    }, 40);
+  }
+
+  // ===== 입력 처리 =====
+  function handleTap(ev){
+    if(gameOver) return;
+    if(isAITurn()) return;
+
+    const coord = coordFromEvent(ev);
+    if(!coord) return;
+    const { col, row } = coord;
+    const m = viewToModel(col,row);
+    const x = m.x, y = m.y;
+    const p = board[y][x];
+
+    if(selected && selected.x === x && selected.y === y){
+      selected = null;
+      setStatus('선택을 취소했습니다.');
+      draw();
+      return;
+    }
+
+    if(!selected){
+      if(p && p.side === turn){
+        const moves = getLegalMoves(board,x,y,p);
+        selected = {x,y,piece:p,moves};
+        setStatus('이동 가능한 칸이 초록색으로 표시됩니다.');
+      }else if(p){
+        setStatus('지금은 상대 차례입니다.');
+      }else{
+        setStatus('자신의 말을 먼저 선택하세요.');
+      }
+      draw();
+    }else{
+      const from = {x:selected.x, y:selected.y};
+      const piece = selected.piece;
+
+      if(p && p.side === turn){
+        const moves = getLegalMoves(board,x,y,p);
+        selected = {x,y,piece:p,moves};
+        setStatus('다른 말을 선택했습니다.');
+        draw();
+        return;
+      }
+
+      const isLegal = (selected.moves || []).some(mv => mv.x === x && mv.y === y);
+      if(!isLegal){
+        setStatus('그 칸으로는 움직일 수 없습니다.');
+        return;
+      }
+
+      selected = null;
+      performMove(from.x, from.y, x, y, false);
+    }
+  }
+
+  cvs.addEventListener('click', function(ev){
+    ev.preventDefault();
+    handleTap(ev);
+  });
+  cvs.addEventListener('touchstart', function(ev){
+    ev.preventDefault();
+    handleTap(ev);
+  }, {passive:false});
+
+  // ===== 버튼 / UI =====
+  btnNew.addEventListener('click', function(){
+    board = setupInitialPosition();
+    turn = SIDE.CHO;
+    selected = null;
+    lastMove = null;
+    history = [];
+    hideGameOver();
+    updateTurnText();
+    setStatus('새 게임을 시작했습니다.', 2000);
+    draw();
+    // 내가 한(빨강) 모드인 경우 컴퓨터(초)가 먼저 둠
+    maybeAIMove();
+  });
+
+  btnUndo.addEventListener('click', function(){
+    if(history.length === 0){
+      setStatus('되돌릴 수 있는 수가 없습니다.');
+      return;
+    }
+    const prev = history.pop();
+    board = cloneBoard(prev.board);
+    turn = prev.turn;
+    lastMove = prev.lastMove;
+    gameOver = prev.gameOver || false;
+    winner = prev.winner || null;
+    selected = null;
+    if(gameOver){
+      const msg = (winner === SIDE.CHO ? '초가 승리했습니다! (장군 포획)' :
+                                   winner === SIDE.HAN ? '한이 승리했습니다! (장군 포획)' :
+                                   '게임 종료');
+      showGameOver(msg);
+    }else{
+      hideGameOver();
+    }
+    updateTurnText();
+    setStatus('무르기 실행.', 2000);
+    draw();
+  });
+
+  btnFlip.addEventListener('click', function(){
+    flipped = !flipped;
+    setStatus(flipped ? '보드를 뒤집었습니다.' : '원래 시점으로 돌아왔습니다.');
+    draw();
+  });
+
+  modeSel.addEventListener('change', function(){
+    mode = modeSel.value;
+    maybeAIMove();
+  });
+
+  diffSel.addEventListener('change', function(){
+    const v = Number(diffSel.value) || 1;
+    aiDepth = Math.max(1, Math.min(3, v));
+  });
+
+  patternChoSel.addEventListener('change', function(){
+    setStatus('초 마/상 차림이 변경되었습니다. 새 게임 시 적용됩니다.', 2000);
+  });
+  patternHanSel.addEventListener('change', function(){
+    setStatus('한 마/상 차림이 변경되었습니다. 새 게임 시 적용됩니다.', 2000);
+  });
+
+  // ===== 초기화 =====
+  function init(){
+    fitCanvas();
+    board = setupInitialPosition();
+    mode = modeSel.value;
+    aiDepth = Number(diffSel.value) || 2;
+    hideGameOver();
+    updateTurnText();
+    setStatus('초(파랑)가 먼저 둡니다.', 2500);
+    draw();
+  }
+  window.addEventListener('resize', function(){
+    fitCanvas();
+    draw();
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
