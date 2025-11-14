@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Pac-Man (레벨/맵/유령/무적/시인성 개선)</title>
+<style>
+  :root{
+    --bg:#050816;
+    --panel:#090e1f;
+    --ink:#e9edff;
+    --muted:#9aa3c7;
+    --line:#222747;
+    --accent:#7aa2ff;
+    --pellet:#f4c97a;
+    --pp:#ff9aa2;
+    --pac:#f7f7ff; /* ▶ 팩맨 색을 거의 흰색으로 변경 */
+    --r:#ff6e7a;
+    --b:#7aa2ff;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    background:radial-gradient(circle at top,#151b3c 0,#050816 52%);
+    color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto;
+  }
+  .wrap{
+    max-width:980px;
+    margin:0 auto;
+    padding:16px;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:8px;
+  }
+  h1{
+    margin:0;
+    font-size:22px;
+    letter-spacing:0.02em;
+  }
+  .row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .btn{
+    padding:8px 12px;
+    border:1px solid #2a315e;
+    border-radius:999px;
+    background:#111834;
+    color:var(--ink);
+    cursor:pointer;
+    font-size:13px;
+    line-height:1.2;
+    white-space:nowrap;
+  }
+  .btn-primary{
+    background:linear-gradient(180deg,#3650ff,#2330b7);
+    border-color:#4a5bff;
+  }
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .tag{
+    display:inline-flex;
+    gap:6px;
+    align-items:center;
+    padding:6px 10px;
+    border:1px solid #2b325c;
+    border-radius:999px;
+    background:#10152f;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .tag b{
+    font-weight:600;
+    color:var(--ink);
+    min-width:2ch;
+    text-align:right;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:14px 14px 10px;
+    box-shadow:0 18px 40px rgba(0,0,0,.5);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .game-shell{
+    background:#020414;
+    border-radius:16px;
+    padding:8px;
+    border:1px solid #181e3a;
+  }
+  canvas{
+    display:block;
+    width:100%;
+    max-width:456px;   /* 논리 해상도와 동일 → 스케일링에 의한 뭉개짐 방지 */
+    height:auto;
+    border-radius:12px;
+    background:#040814;
+  }
+  .pad{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin-top:10px;
+    flex-wrap:wrap;
+  }
+  .pad .btn{
+    min-width:86px;
+    border-radius:12px;
+  }
+  .hud{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin:8px 0 8px;
+  }
+  .hint{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:6px;
+    text-align:center;
+  }
+  .btn-level{
+    padding:6px 10px;
+    font-size:13px;
+    border-radius:999px;
+    background:#0e1230;
+    border-color:#2b325c;
+    min-width:32px;
+    justify-content:center;
+  }
+  .btn-level.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>팩맨 (간단형)</h1>
+    <div class="row">
+      <button id="btn-start" class="btn btn-primary">시작 / 재시작</button>
+      <button id="btn-pause" class="btn">일시정지</button>
+      <button id="btn-mute" class="btn" aria-pressed="false">🔊 음소거</button>
+    </div>
+  </header>
+
+  <!-- 시작 단계 선택 버튼 -->
+  <div class="row" style="margin-bottom:4px;">
+    <span class="tag">시작 단계</span>
+    <div class="row" id="level-buttons">
+      <button class="btn btn-level active" data-level="1">1</button>
+      <button class="btn btn-level" data-level="2">2</button>
+      <button class="btn btn-level" data-level="3">3</button>
+      <button class="btn btn-level" data-level="4">4</button>
+      <button class="btn btn-level" data-level="5">5</button>
+    </div>
+  </div>
+
+  <div class="hud">
+    <span class="tag">점수 <b id="score">0</b></span>
+    <span class="tag">레벨 <b id="level">1</b></span>
+    <span class="tag">라이프 <b id="lives">3</b></span>
+    <span class="tag">최고 <b id="best">0</b></span>
+  </div>
+
+  <div class="panel">
+    <div class="game-shell">
+      <!-- 19행 x 24px = 456px -->
+      <canvas id="game" width="456" height="456" aria-label="Pac-Man"></canvas>
+    </div>
+    <div class="pad">
+      <button id="up" class="btn">▲</button>
+      <div class="row">
+        <button id="left" class="btn">◀</button>
+        <button id="right" class="btn">▶</button>
+      </div>
+      <button id="down" class="btn">▼</button>
+    </div>
+    <div class="hint">
+      방향키 / WASD 이동, <b>P</b> 일시정지, 버튼/터치 지원.<br/>
+      선택한 <b>시작 단계</b>를 깨면 자동으로 다음 단계로 넘어갑니다.
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const CV  = document.getElementById('game');
+  const CTX = CV.getContext('2d');
+  const $   = id => document.getElementById(id);
+
+  const hud = {
+    score: $('score'),
+    level: $('level'),
+    lives: $('lives'),
+    best:  $('best')
+  };
+
+  const btnStart = $('btn-start');
+  const btnPause = $('btn-pause');
+  const btnMute  = $('btn-mute');
+  const dpad = {
+    up:   $('up'),
+    down: $('down'),
+    left: $('left'),
+    right:$('right')
+  };
+  const levelBtns = Array.from(document.querySelectorAll('.btn-level'));
+
+  // ---- 색상 / 상수 ----
+  const COLORS = {
+    wall:'#122458',
+    pellet:'#f4c97a',
+    power:'#ff9aa2',
+    pac:'#f7f7ff',          // ▶ JS 쪽 팩맨 색도 흰색 계열로
+    ink:'#e9edff',
+    ghostFright:'#b7bde7',
+    red:'#ff6e7a',
+    blue:'#7aa2ff',
+    pink:'#ff9ad5',
+    orange:'#ffb85c',
+    green:'#7fffd4',
+    bgTile:'#050a18'
+  };
+
+  // ---- 기본 맵 (19 x 19) ----
+  // # = 벽, . = 펠릿, o = 파워펠릿, P = 팩맨 시작, 공백 = 빈 길
+  const BASE_MAP = [
+    "###################",
+    "#.................#",
+    "#.#####.....#####.#",
+    "#o....#.........#o#",
+    "#.#####.....#####.#",
+    "#.................#",
+    "#.###.###.#.###.###",
+    "#.....#...P...#...#",
+    "#.###.###.#.###.###",
+    "#...#...........#.#",
+    "#.###.###.#.###.#.#",
+    "#.....#.......#...#",
+    "#.###.###.#.###.###",
+    "#.................#",
+    "#.#####.....#####.#",
+    "#o....#.........#o#",
+    "#.#####.....#####.#",
+    "#.................#",
+    "###################"
+  ];
+
+  function mirrorH(rows){
+    return rows.map(r => r.split('').reverse().join(''));
+  }
+  function mirrorV(rows){
+    return [...rows].reverse();
+  }
+
+  // 레벨별 맵: 대칭 변형으로 4개, 5레벨은 다시 기본맵
+  const LEVEL_MAPS = [
+    BASE_MAP,
+    mirrorH(BASE_MAP),
+    mirrorV(BASE_MAP),
+    mirrorH(mirrorV(BASE_MAP)),
+    BASE_MAP
+  ];
+  const LEVEL_COUNT = LEVEL_MAPS.length;
+
+  const ROWS = LEVEL_MAPS[0].length;
+  const COLS = LEVEL_MAPS[0][0].length;
+  const TILE = 24;
+
+  const LOGICAL_W = COLS * TILE;
+  const LOGICAL_H = ROWS * TILE;
+
+  // 고해상도 렌더링 (DPR 반영)
+  function setupHiDPI(){
+    const DPR = Math.max(1, window.devicePixelRatio || 1);
+    CV.width  = LOGICAL_W * DPR;
+    CV.height = LOGICAL_H * DPR;
+    CTX.setTransform(DPR,0,0,DPR,0,0);
+  }
+  setupHiDPI();
+
+  // ---- 오디오 ----
+  const SAVE_KEY = 'simple_pacman_best_level_v3';
+  const AudioCtx = (window.AudioContext || window.webkitAudioContext)
+    ? new (window.AudioContext || window.webkitAudioContext)()
+    : null;
+
+  const Sound = {
+    muted:false,
+    blip(freq=440, dur=0.07, g=0.06, type='square'){
+      if(!AudioCtx || this.muted) return;
+      const t = AudioCtx.currentTime;
+      const o = AudioCtx.createOscillator();
+      const gn = AudioCtx.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      gn.gain.setValueAtTime(0, t);
+      gn.gain.linearRampToValueAtTime(g, t+0.01);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+      o.connect(gn).connect(AudioCtx.destination);
+      o.start(t);
+      o.stop(t+dur+0.03);
+    },
+    eat(){ this.blip(780,0.05,0.05,'square'); },
+    power(){ this.blip(460,0.18,0.08,'sawtooth'); },
+    ghost(){ this.blip(260,0.22,0.09,'triangle'); },
+    die(){ this.blip(110,0.4,0.12,'sawtooth'); },
+    level(){ this.blip(600,0.22,0.09,'triangle'); }
+  };
+
+  // ---- 게임 상태 ----
+  let map = [];
+  let pelletsLeft = 0;
+  let pacStart = {x:1.5,y:1.5};
+  let ghostStarts = []; // {x,y,color}는 resetEntities에서 색 입힘
+
+  let pac = null;
+  let ghosts = [];
+  let frightTimer = 0;
+  let safeUntilMove = false; // 움직이기 전까지 유령 무효 + 이제는 정지도
+
+  const State = {
+    running:false,
+    paused:false,
+    over:false,
+    clearedAll:false,
+    score:0,
+    level:1,
+    lives:3,
+    best:Number(localStorage.getItem(SAVE_KEY) || 0)
+  };
+
+  let startLevel = 1; // 시작 버튼 누를 때 시작할 단계
+
+  // ---- 맵 생성 ----
+  function buildMap(){
+    const layoutIndex = Math.min(Math.max(State.level,1), LEVEL_COUNT) - 1;
+    const RAW_MAP = LEVEL_MAPS[layoutIndex];
+
+    map = [];
+    pelletsLeft = 0;
+    pacStart = null;
+
+    for(let r=0;r<ROWS;r++){
+      const rowStr = RAW_MAP[r];
+      const row = [];
+      for(let c=0;c<COLS;c++){
+        const ch = rowStr[c];
+        let tile = 0;
+        switch(ch){
+          case '#':
+            tile = 1; // 벽
+            break;
+          case '.':
+            tile = 2; // 펠릿
+            pelletsLeft++;
+            break;
+          case 'o':
+            tile = 3; // 파워펠릿
+            pelletsLeft++;
+            break;
+          case 'P':
+            pacStart = {x:c+0.5, y:r+0.5};
+            tile = 0;
+            break;
+          default:
+            tile = 0; // 빈 길
+        }
+        row.push(tile);
+      }
+      map.push(row);
+    }
+
+    if(!pacStart){
+      pacStart = {x:COLS/2+0.5, y:ROWS/2+0.5};
+    }
+
+    computeGhostStarts();
+  }
+
+  function tileAt(c,r){
+    if(c<0 || c>=COLS || r<0 || r>=ROWS) return 1;
+    return map[r][c];
+  }
+  function isWall(c,r){ return tileAt(c,r) === 1; }
+  function centered(x,y){
+    const cx = Math.floor(x)+0.5;
+    const cy = Math.floor(y)+0.5;
+    return Math.abs(x-cx)<0.12 && Math.abs(y-cy)<0.12;
+  }
+  function canMoveFrom(x,y,dir){
+    if(dir.x===0 && dir.y===0) return true;
+    const nx = x + dir.x*0.5;
+    const ny = y + dir.y*0.5;
+    const c = Math.floor(nx);
+    const r = Math.floor(ny);
+    return !isWall(c,r);
+  }
+  function dist2(ax,ay,bx,by){
+    const dx=ax-bx, dy=ay-by;
+    return dx*dx + dy*dy;
+  }
+
+  // 유령 시작 위치 자동 계산 (맵 중앙 근처의 빈 칸들)
+  function computeGhostStarts(){
+    const centerX = COLS / 2;
+    const centerY = ROWS / 2;
+    const candidates = [];
+
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        if(map[r][c] === 1) continue; // 벽 제외
+        const x = c+0.5;
+        const y = r+0.5;
+        if(pacStart && Math.abs(x-pacStart.x)<0.1 && Math.abs(y-pacStart.y)<0.1) continue; // 팩맨 위치 제외
+        const d2 = (x-centerX)*(x-centerX) + (y-centerY)*(y-centerY);
+        candidates.push({x,y,d2});
+      }
+    }
+    candidates.sort((a,b)=>a.d2-b.d2);
+
+    const targetGhosts = Math.min(State.level, 5); // 레벨당 1~5마리
+    ghostStarts = [];
+    if(candidates.length === 0){
+      // 비상용: 팩맨 주변 몇 칸
+      for(let i=0;i<targetGhosts;i++){
+        ghostStarts.push({x:pacStart.x + (i-1), y:pacStart.y});
+      }
+      return;
+    }
+    for(let i=0;i<targetGhosts;i++){
+      const idx = Math.min(i, candidates.length-1);
+      ghostStarts.push({x:candidates[idx].x, y:candidates[idx].y});
+    }
+  }
+
+  // ---- 엔티티 ----
+  function makePac(){
+    return {
+      x:pacStart.x,
+      y:pacStart.y,
+      dir:{x:0,y:0},
+      nextDir:{x:0,y:0},
+      speed:6 + (State.level-1)*0.5,
+      mouth:0
+    };
+  }
+  function makeGhost(start, color){
+    return {
+      x:start.x,
+      y:start.y,
+      dir:{x:1,y:0},
+      speed:5 + (State.level-1)*0.4,
+      color,
+      mode:'normal' // normal / fright
+    };
+  }
+
+  const GHOST_COLORS = ['red','blue','pink','orange','green'];
+
+  function resetEntities(){
+    pac = makePac();
+    const n = ghostStarts.length;
+    ghosts = [];
+    for(let i=0;i<n;i++){
+      const colorName = GHOST_COLORS[i % GHOST_COLORS.length];
+      ghosts.push(makeGhost(ghostStarts[i], colorName));
+    }
+    frightTimer = 0;
+    safeUntilMove = true; // 새로 시작/부활 시 첫 이동 전까지 무적 & 유령 정지
+  }
+
+  // ---- HUD ----
+  function updateHUD(){
+    hud.score.textContent = State.score;
+    hud.level.textContent = State.level;
+    hud.lives.textContent = State.lives;
+    hud.best.textContent  = State.best;
+    btnPause.textContent  = State.paused ? '계속하기' : '일시정지';
+  }
+
+  // ---- 레벨 버튼 ----
+  levelBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const lvl = Number(btn.dataset.level) || 1;
+      startLevel = Math.min(Math.max(lvl,1), LEVEL_COUNT);
+      levelBtns.forEach(b=>b.classList.toggle('active', b===btn));
+    });
+  });
+
+  // ---- 입력 ----
+  function setNextDir(dx,dy){
+    if(!pac) return;
+    pac.nextDir = {x:dx, y:dy};
+  }
+
+  window.addEventListener('keydown', e=>{
+    const k = e.key.toLowerCase();
+    if(['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d','p'].includes(k)){
+      e.preventDefault();
+    }
+    if(k==='p'){
+      togglePause();
+      return;
+    }
+    if(!State.running) return;
+    if(k==='arrowup'||k==='w')    setNextDir(0,-1);
+    if(k==='arrowdown'||k==='s')  setNextDir(0,1);
+    if(k==='arrowleft'||k==='a')  setNextDir(-1,0);
+    if(k==='arrowright'||k==='d') setNextDir(1,0);
+  });
+
+  dpad.up.onclick    = ()=> setNextDir(0,-1);
+  dpad.down.onclick  = ()=> setNextDir(0,1);
+  dpad.left.onclick  = ()=> setNextDir(-1,0);
+  dpad.right.onclick = ()=> setNextDir(1,0);
+
+  // ---- 버튼 ----
+  btnStart.onclick = ()=>{
+    State.running = true;
+    State.paused  = false;
+    State.over    = false;
+    State.clearedAll = false;
+    State.score   = 0;
+    State.lives   = 3;
+    State.level   = startLevel;
+    buildMap();
+    resetEntities();
+    updateHUD();
+    draw();
+  };
+
+  function togglePause(){
+    if(!State.running || State.over) return;
+    State.paused = !State.paused;
+    updateHUD();
+  }
+  btnPause.onclick = ()=> togglePause();
+
+  btnMute.onclick = ()=>{
+    const now = btnMute.getAttribute('aria-pressed') === 'true';
+    const next = !now;
+    btnMute.setAttribute('aria-pressed', String(next));
+    Sound.muted = next;
+    btnMute.textContent = next ? '🔇 음소거 해제' : '🔊 음소거';
+  };
+
+  // ---- 게임 로직 ----
+  function eatPellet(){
+    const c = Math.floor(pac.x);
+    const r = Math.floor(pac.y);
+    const t = tileAt(c,r);
+    if(t===2){
+      map[r][c]=0;
+      pelletsLeft--;
+      State.score+=10;
+      Sound.eat();
+    }else if(t===3){
+      map[r][c]=0;
+      pelletsLeft--;
+      State.score+=50;
+      frightTimer = 7;
+      ghosts.forEach(g=>g.mode='fright');
+      Sound.power();
+    }
+    if(State.score>State.best){
+      State.best = State.score;
+      try{ localStorage.setItem(SAVE_KEY,String(State.best)); }catch(e){}
+    }
+  }
+
+  function goNextLevel(){
+    if(State.level < LEVEL_COUNT){
+      State.level++;
+      Sound.level();
+      buildMap();
+      resetEntities();
+      updateHUD();
+    }else{
+      // 마지막 레벨 클리어
+      Sound.level();
+      State.clearedAll = true;
+      State.over   = true;
+      State.running=false;
+      State.paused = false;
+    }
+  }
+
+  function loseLife(){
+    Sound.die();
+    State.lives--;
+    updateHUD();
+    if(State.lives<=0){
+      State.over   = true;
+      State.running=false;
+      State.paused = false;
+      return;
+    }
+    resetEntities();
+  }
+
+  function updatePac(dt){
+    if(!pac) return;
+
+    // 첫 방향 입력 시 바로 출발
+    if(pac.dir.x===0 && pac.dir.y===0 &&
+       (pac.nextDir.x!==0 || pac.nextDir.y!==0) &&
+       canMoveFrom(pac.x,pac.y,pac.nextDir)){
+      pac.dir = {...pac.nextDir};
+    }
+
+    // 교차점에서 회전
+    if((pac.nextDir.x!==pac.dir.x || pac.nextDir.y!==pac.dir.y) && centered(pac.x,pac.y)){
+      if(canMoveFrom(pac.x,pac.y,pac.nextDir)){
+        pac.dir = {...pac.nextDir};
+      }
+    }
+
+    // 이제 실제로 방향이 생겼으면 무적/정지 해제
+    if(safeUntilMove && (pac.dir.x!==0 || pac.dir.y!==0)){
+      safeUntilMove = false;
+    }
+
+    // 이동
+    if(canMoveFrom(pac.x,pac.y,pac.dir)){
+      pac.x += pac.dir.x * pac.speed * dt;
+      pac.y += pac.dir.y * pac.speed * dt;
+    }else{
+      pac.dir = {x:0,y:0};
+    }
+
+    pac.mouth += 10*dt;
+
+    eatPellet();
+    if(pelletsLeft<=0){
+      goNextLevel();
+    }
+  }
+
+  function updateGhost(g,dt){
+    // ▶ 시작/부활 직후, 팩맨이 움직이기 전에는 유령도 완전 정지
+    if(safeUntilMove) return;
+
+    const speed = (g.mode==='fright') ? g.speed*0.6 : g.speed;
+
+    if(centered(g.x,g.y)){
+      const dirs = [
+        {x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}
+      ].filter(d=>canMoveFrom(g.x,g.y,d));
+
+      if(dirs.length>0){
+        const target = {x:pac.x,y:pac.y};
+        let best=null, bestScore = g.mode==='fright' ? -Infinity : Infinity;
+        for(const d of dirs){
+          const nx = Math.floor(g.x)+0.5 + d.x;
+          const ny = Math.floor(g.y)+0.5 + d.y;
+          const d2 = dist2(nx,ny,target.x,target.y);
+          if(g.mode==='fright'){
+            if(d2>bestScore){ bestScore=d2; best=d; }
+          }else{
+            if(d2<bestScore){ bestScore=d2; best=d; }
+          }
+        }
+        if(best) g.dir=best;
+      }
+    }
+
+    if(canMoveFrom(g.x,g.y,g.dir)){
+      g.x += g.dir.x * speed * dt;
+      g.y += g.dir.y * speed * dt;
+    }else{
+      const back = {x:-g.dir.x,y:-g.dir.y};
+      if(canMoveFrom(g.x,g.y,back)) g.dir = back;
+      else g.dir = {x:0,y:0};
+    }
+
+    const hit2 = dist2(g.x,g.y,pac.x,pac.y);
+    if(hit2 < 0.4*0.4){
+      if(safeUntilMove){
+        // 무적 상태일 때는 충돌 무시 (이론상 여기 안 오지만 안전용)
+        return;
+      }
+      if(g.mode==='fright'){
+        State.score += 200;
+        Sound.ghost();
+        if(State.score>State.best){
+          State.best = State.score;
+          try{ localStorage.setItem(SAVE_KEY,String(State.best)); }catch(e){}
+        }
+        // 유령 리스폰 (가장 가까운 시작 위치 재사용)
+        const idx = ghosts.indexOf(g);
+        const start = ghostStarts[Math.min(idx, ghostStarts.length-1)] || ghostStarts[0];
+        g.x = start.x;
+        g.y = start.y;
+        g.dir={x:1,y:0};
+        g.mode='normal';
+      }else{
+        loseLife();
+      }
+    }
+  }
+
+  function updateGame(dt){
+    if(!State.running || State.paused || State.over) return;
+
+    if(frightTimer>0){
+      frightTimer -= dt;
+      if(frightTimer<=0){
+        ghosts.forEach(g=>g.mode='normal');
+      }
+    }
+
+    updatePac(dt);
+    ghosts.forEach(g=>updateGhost(g,dt));
+  }
+
+  // ---- 렌더링 ----
+  function drawMap(){
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const t = tileAt(c,r);
+        const x = c*TILE;
+        const y = r*TILE;
+
+        if(t===1){
+          CTX.fillStyle = COLORS.wall;
+          CTX.fillRect(x+2,y+2,TILE-4,TILE-4);
+        }else{
+          CTX.fillStyle = COLORS.bgTile;
+          CTX.fillRect(x,y,TILE,TILE);
+          if(t===2){
+            CTX.beginPath();
+            CTX.arc(x+TILE/2,y+TILE/2,2,0,Math.PI*2);
+            CTX.fillStyle = COLORS.pellet;
+            CTX.fill();
+          }else if(t===3){
+            CTX.beginPath();
+            CTX.arc(x+TILE/2,y+TILE/2,6,0,Math.PI*2);
+            CTX.fillStyle = COLORS.power;
+            CTX.fill();
+          }
+        }
+      }
+    }
+  }
+
+  function drawPac(){
+    if(!pac) return;
+    const x = pac.x*TILE;
+    const y = pac.y*TILE;
+
+    let angle = Math.atan2(pac.dir.y,pac.dir.x);
+    if(pac.dir.x===0 && pac.dir.y===0) angle = 0;
+
+    const m = 0.4 + 0.2*Math.sin(pac.mouth);
+    const open = (pac.dir.x===0 && pac.dir.y===0) ? 0.2 : m;
+
+    CTX.save();
+    CTX.translate(x,y);
+
+    // 글로우 (흰색 계열)
+    CTX.save();
+    CTX.shadowColor = 'rgba(255,255,255,0.9)';
+    CTX.shadowBlur = 20;
+    CTX.beginPath();
+    CTX.moveTo(0,0);
+    const glowStart = angle + open;
+    const glowEnd   = angle - open;
+    CTX.arc(0,0,13,glowStart,glowEnd,true);
+    CTX.closePath();
+    CTX.fillStyle = COLORS.pac;
+    CTX.fill();
+    CTX.restore();
+
+    // 본체 + 검은 외곽선 (조금 더 크게)
+    CTX.beginPath();
+    const start = angle + open;
+    const end   = angle - open;
+    CTX.moveTo(0,0);
+    CTX.arc(0,0,12,start,end,true);
+    CTX.closePath();
+    CTX.fillStyle = COLORS.pac;
+    CTX.fill();
+    CTX.lineWidth = 2.4;
+    CTX.strokeStyle = '#ffe55e';
+    CTX.stroke();
+
+    CTX.restore();
+  }
+
+  function drawGhost(g){
+    const x = g.x*TILE;
+    const y = g.y*TILE;
+    const clr = g.mode==='fright'
+      ? COLORS.ghostFright
+      : (
+        g.color==='red'   ? COLORS.red   :
+        g.color==='blue'  ? COLORS.blue  :
+        g.color==='pink'  ? COLORS.pink  :
+        g.color==='orange'? COLORS.orange:
+                             COLORS.green
+      );
+
+    CTX.save();
+    CTX.translate(x,y);
+    CTX.fillStyle = clr;
+    CTX.beginPath();
+    CTX.arc(0,0,10,Math.PI,0);
+    CTX.lineTo(10,10);
+    CTX.lineTo(6,6);
+    CTX.lineTo(2,10);
+    CTX.lineTo(-2,6);
+    CTX.lineTo(-6,10);
+    CTX.lineTo(-10,10);
+    CTX.closePath();
+    CTX.fill();
+
+    CTX.fillStyle = '#fff';
+    CTX.beginPath();
+    CTX.arc(-4,-2,3,0,Math.PI*2);
+    CTX.arc(4,-2,3,0,Math.PI*2);
+    CTX.fill();
+
+    CTX.fillStyle = '#123';
+    const ex = Math.max(-2,Math.min(2,g.dir.x*2));
+    const ey = Math.max(-2,Math.min(2,g.dir.y*2));
+    CTX.beginPath();
+    CTX.arc(-4+ex,-2+ey,1.4,0,Math.PI*2);
+    CTX.arc(4+ex,-2+ey,1.4,0,Math.PI*2);
+    CTX.fill();
+
+    CTX.restore();
+  }
+
+  function drawOverlay(msg){
+    CTX.save();
+    CTX.fillStyle = 'rgba(0,0,0,0.45)';
+    CTX.fillRect(0,0,LOGICAL_W,LOGICAL_H);
+    CTX.fillStyle = COLORS.ink;
+    CTX.font = 'bold 24px system-ui';
+    const w = CTX.measureText(msg).width;
+    CTX.fillText(msg,(LOGICAL_W-w)/2, LOGICAL_H*0.45);
+    CTX.restore();
+  }
+
+  function draw(){
+    CTX.clearRect(0,0,LOGICAL_W,LOGICAL_H);
+    drawMap();
+    if(pac) drawPac();
+    ghosts.forEach(g=>drawGhost(g,0));
+
+    if(!State.running){
+      drawOverlay('시작 / 재시작 버튼을 누르세요');
+    }else if(State.paused){
+      drawOverlay('일시정지 / Paused');
+    }else if(State.over){
+      const msg = State.clearedAll
+        ? '축하합니다! 1~5단계 모두 클리어 🎉'
+        : '게임 오버';
+      drawOverlay(msg);
+    }
+  }
+
+  // ---- 루프 ----
+  let lastTime = 0;
+  function loop(ts){
+    requestAnimationFrame(loop);
+    if(!lastTime) lastTime = ts;
+    const dt = Math.min(0.05,(ts-lastTime)/1000);
+    lastTime = ts;
+
+    updateGame(dt);
+    draw();
+  }
+
+  // ---- 초기화 ----
+  buildMap();
+  resetEntities();
+  updateHUD();
+  draw();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
