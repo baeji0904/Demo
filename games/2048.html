@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>2048 – Minimal Dark</title>
+<style>
+  :root{
+    --bg:#0e1220; --panel:#141933; --panel2:#0b0f1e; --ink:#e9edff; --muted:#9aa3c7; --accent:#7aa2ff;
+    --gap:10px; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto}
+  .wrap{max-width:900px;margin:0 auto;padding:16px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font-size:22px;margin:0}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .btn{padding:8px 12px;border:1px solid #2a315e;border-radius:12px;background:#1b2145;color:var(--ink);cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-primary{background:linear-gradient(180deg,#2e4cff,#2337a7);border-color:#3a50ff}
+  .tag{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid #2b325c;border-radius:999px;background:#121632;color:var(--muted)}
+  select{background:#121632;border:1px solid #2b325c;border-radius:10px;color:var(--ink);padding:6px 10px}
+
+  .panel{display:grid;grid-template-columns:minmax(280px,520px) 1fr;gap:14px}
+  @media(max-width:900px){.panel{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid #242a49;border-radius:16px;padding:12px}
+
+  /* Board */
+  .board-wrap{display:flex;justify-content:center}
+  .board{
+    position:relative;width:100%;max-width:520px;aspect-ratio:1/1;
+    background:var(--panel2);border-radius:16px;padding:var(--gap);
+    border:1px solid #222747;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  }
+  .grid{
+    position:absolute;left:0;top:0;right:0;bottom:0;padding:var(--gap);
+    display:grid;grid-template-columns:repeat(var(--size),1fr);
+    grid-template-rows:repeat(var(--size),1fr);gap:var(--gap);
+  }
+  .cell{
+    background:#11172d;border-radius:12px;border:1px solid #1d2340;
+  }
+
+  /* Tiles */
+  .tiles{position:absolute;left:0;top:0;right:0;bottom:0}
+  .tile{
+    position:absolute;display:flex;align-items:center;justify-content:center;
+    font-weight:800;border-radius:12px;user-select:none;
+    transform:translate(var(--x),var(--y)) scale(1);transition:transform .12s ease, background .12s ease, color .12s ease;
+    box-shadow:0 6px 16px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .tile.new{animation:pop .12s ease}
+  @keyframes pop{from{transform:translate(var(--x),var(--y)) scale(.6);opacity:.6}to{transform:translate(var(--x),var(--y)) scale(1);opacity:1}}
+
+  /* Colors by value */
+  .t-2{background:#2b355e;color:#dfe7ff}
+  .t-4{background:#273b70;color:#e9f1ff}
+  .t-8{background:#21408e;color:#fff}
+  .t-16{background:#1f469e;color:#fff}
+  .t-32{background:#1b4db1;color:#fff}
+  .t-64{background:#1454c8;color:#fff}
+  .t-128{background:#0c72d4;color:#fff}
+  .t-256{background:#0787da;color:#fff}
+  .t-512{background:#06a0e0;color:#fff}
+  .t-1024{background:#10b981;color:#052d25}
+  .t-2048{background:#ffd685;color:#3a2c00}
+  .t-big{background:linear-gradient(135deg,#ffd685,#ff9aa2,#b79cff);color:#161616}
+
+  .aside{color:var(--muted);font-size:14px}
+  .kbd{display:inline-grid;place-items:center;border:1px solid #2b325c;border-radius:8px;padding:0 6px;height:24px;background:#121632;color:#cfd6ff}
+
+  .muted{opacity:.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>2048 Demo</h1>
+    <div class="row">
+      <span class="tag">점수 <b id="score">0</b></span>
+      <span class="tag">최고 <b id="best">0</b></span>
+      <label class="tag">크기
+        <select id="size">
+          <option value="4" selected>4×4</option>
+          <option value="5">5×5</option>
+          <option value="6">6×6</option>
+        </select>
+      </label>
+      <button id="new" class="btn btn-primary">새 게임</button>
+      <button id="undo" class="btn">실행취소</button>
+      <button id="mute" class="btn" aria-pressed="false">🔊 음소거</button>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="card">
+      <div class="board-wrap">
+        <div id="board" class="board" style="--size:4">
+          <div class="grid" id="grid"></div>
+          <div class="tiles" id="tiles"></div>
+        </div>
+      </div>
+      <div class="aside" style="margin-top:8px">
+        ←↑→↓ 또는 <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>, 터치 스와이프 지원. 같은 숫자를 합치면 점수가 올라갑니다. 2048을 만들어보세요!
+      </div>
+    </div>
+    <div class="card">
+      <div style="color:#9aa3c7">팁</div>
+      <ul class="aside">
+        <li>한 번의 <b>실행취소</b>가 가능해요.</li>
+        <li><b>음소거</b>로 효과음을 끄고 켤 수 있어요.</li>
+        <li>그리드 크기를 바꾸면 새 게임이 시작돼요.</li>
+      </ul>
+      <div class="aside muted">디자인 팔레트는 예전 벽돌깨기/체스와 통일된 다크 톤입니다.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  // ===== Elements =====
+  const elBoard = document.getElementById('board');
+  const elGrid  = document.getElementById('grid');
+  const elTiles = document.getElementById('tiles');
+  const elScore = document.getElementById('score');
+  const elBest  = document.getElementById('best');
+  const elSize  = document.getElementById('size');
+  const btnNew  = document.getElementById('new');
+  const btnUndo = document.getElementById('undo');
+  const btnMute = document.getElementById('mute');
+
+  // ===== State =====
+  const SAVE_KEY_PREFIX = 'g2048.best.';
+  let N = 4;
+  let GRID = []; // 2D array of tile or null
+  let nextId = 1;
+  let score = 0, best = Number(localStorage.getItem(SAVE_KEY_PREFIX+N) || 0);
+  let history = null; // {gridJSON, score}
+  let muted = false;
+
+  // ===== Audio (WebAudio minimal beeps) =====
+  const audio = (() => {
+    const ctx = (window.AudioContext || window.webkitAudioContext) ? new (window.AudioContext || window.webkitAudioContext)() : null;
+    function beep(freq=440, dur=0.06, gain=0.04){
+      if(!ctx || muted) return;
+      const t0 = ctx.currentTime, osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gain, t0+0.005);
+      g.gain.linearRampToValueAtTime(0, t0+dur);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(t0); osc.stop(t0+dur+0.01);
+    }
+    return {
+      move(){ beep(300,0.04,0.03); },
+      merge(v){ // pitch by value
+        const f = 220 + Math.log2(v)*60;
+        beep(f,0.08,0.06);
+      },
+      spawn(){ beep(520,0.03,0.03); },
+      over(){ beep(150,0.2,0.06); }
+    };
+  })();
+
+  // ===== Utils =====
+  const rnd = (n)=> Math.floor(Math.random()*n);
+  const cloneGrid = (g)=> g.map(row => row.map(t => t ? {...t} : null));
+  const serialize = (g)=> JSON.stringify(g.map(r=>r.map(t=>t?{v:t.v,id:t.id}:null)));
+  const deserialize = (s)=> JSON.parse(s).map(r=>r.map(t=>t?{v:t.v,id:t.id}:null));
+
+  // Pixel helpers for tile layout
+  function computeCellSize(){
+    const rect = elBoard.getBoundingClientRect();
+    const gap = parseFloat(getComputedStyle(elBoard).getPropertyValue('--gap')) || 10;
+    const inner = rect.width - gap*2;
+    const cell = (inner - gap*(N-1)) / N;
+    return {cell, gap};
+  }
+  function setTilePos(el, r, c){
+    const {cell, gap} = computeCellSize();
+    const x = gap + c*(cell+gap);
+    const y = gap + r*(cell+gap);
+    el.style.setProperty('--x', x+'px');
+    el.style.setProperty('--y', y+'px');
+    el.style.width = cell+'px';
+    el.style.height = cell+'px';
+    el.style.fontSize = (cell*0.42)+'px';
+  }
+  function classFor(v){
+    if(v>=2048) return 't-big';
+    const map = {2:'t-2',4:'t-4',8:'t-8',16:'t-16',32:'t-32',64:'t-64',128:'t-128',256:'t-256',512:'t-512',1024:'t-1024',2048:'t-2048'};
+    return map[v] || 't-big';
+  }
+
+  // ===== Rendering =====
+  function drawGrid(){
+    elBoard.style.setProperty('--size', N);
+    elGrid.innerHTML = '';
+    for(let i=0;i<N*N;i++){
+      const d = document.createElement('div');
+      d.className = 'cell';
+      elGrid.appendChild(d);
+    }
+  }
+  function drawTiles(prevMap){
+    // prevMap: optional {id:{r,c}} to animate movement
+    elTiles.innerHTML = '';
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const t = GRID[r][c]; if(!t) continue;
+        const el = document.createElement('div');
+        el.className = 'tile '+classFor(t.v)+(t.new?' new':''); t.new=false;
+        el.dataset.id = t.id;
+        el.textContent = t.v;
+        setTilePos(el, r, c);
+        // if moved, animate from previous pos
+        if(prevMap && prevMap[t.id]){
+          const {r:pr, c:pc} = prevMap[t.id];
+          if(pr!==r || pc!==c){
+            setTilePos(el, pr, pc);
+            // force reflow then move
+            el.getBoundingClientRect();
+            setTilePos(el, r, c);
+          }
+        }
+        elTiles.appendChild(el);
+      }
+    }
+    elScore.textContent = score;
+    elBest.textContent = best;
+  }
+
+  // ===== Game Logic =====
+  function emptyCells(){
+    const cells=[];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(!GRID[r][c]) cells.push({r,c});
+    return cells;
+  }
+  function addRandomTile(){
+    const cells = emptyCells();
+    if(!cells.length) return false;
+    const {r,c} = cells[rnd(cells.length)];
+    GRID[r][c] = {id:nextId++, v: Math.random()<0.9?2:4, new:true};
+    audio.spawn();
+    return true;
+  }
+  function startGame(sizeChanged=false){
+    history = null;
+    score = 0;
+    N = Number(elSize.value);
+    best = Number(localStorage.getItem(SAVE_KEY_PREFIX+N) || 0);
+    GRID = Array.from({length:N},()=>Array(N).fill(null));
+    nextId = 1;
+    drawGrid();
+    addRandomTile(); addRandomTile();
+    drawTiles();
+  }
+
+  function canMove(){
+    if(emptyCells().length) return true;
+    // check merges
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const v=GRID[r][c]?.v;
+        if(c+1<N && GRID[r][c+1]?.v===v) return true;
+        if(r+1<N && GRID[r+1][c]?.v===v) return true;
+      }
+    }
+    return false;
+  }
+
+  function move(dir){ // dir: 'left','right','up','down'
+    const vec = {left:{dr:0,dc:-1}, right:{dr:0,dc:1}, up:{dr:-1,dc:0}, down:{dr:1,dc:0}}[dir];
+    const rangeR = [...Array(N).keys()];
+    const rangeC = [...Array(N).keys()];
+    if(dir==='right') rangeC.reverse();
+    if(dir==='down') rangeR.reverse();
+
+    // save for undo
+    history = {gridJSON: serialize(GRID), score};
+
+    // track previous positions
+    const prevPos = {};
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){ const t=GRID[r][c]; if(t) prevPos[t.id]={r,c}; }
+
+    let moved=false;
+    // reset merge flags
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(GRID[r][c]) GRID[r][c].merged=false;
+
+    const step = (r,c)=>{
+      const tile = GRID[r][c]; if(!tile) return;
+      let nr=r, nc=c;
+      while(true){
+        const tr = nr+vec.dr, tc = nc+vec.dc;
+        if(tr<0||tr>=N||tc<0||tc>=N) break;
+        const t2 = GRID[tr][tc];
+        if(!t2){ nr=tr; nc=tc; continue; }
+        if(!t2.merged && t2.v===tile.v){ // merge
+          nr=tr; nc=tc; break;
+        }
+        break;
+      }
+      if(nr===r && nc===c) return;
+      moved=true;
+      const dest = GRID[nr][nc];
+      if(dest && dest.v===tile.v && !dest.merged){
+        // merge
+        GRID[nr][nc] = {id:nextId++, v: dest.v*2};
+        GRID[nr][nc].merged = true;
+        score += GRID[nr][nc].v;
+        audio.merge(GRID[nr][nc].v);
+      }else{
+        GRID[nr][nc] = tile;
+      }
+      GRID[r][c] = null;
+    };
+
+    if(dir==='left' || dir==='right'){
+      for(const r of rangeR) for(const c of rangeC) step(r,c);
+    }else{
+      for(const c of rangeC) for(const r of rangeR) step(r,c);
+    }
+
+    if(!moved){
+      // no change -> drop history
+      history = null;
+      return false;
+    }
+    audio.move();
+    // clear merged flags
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(GRID[r][c]) GRID[r][c].merged=false;
+
+    // spawn new
+    addRandomTile();
+
+    // update best
+    if(score>best){ best=score; localStorage.setItem(SAVE_KEY_PREFIX+N,best); }
+
+    drawTiles(prevPos);
+
+    if(!canMove()){
+      audio.over();
+      toast('게임 종료! 새 게임을 눌러 다시 시작하세요.');
+    }
+    return true;
+  }
+
+  // ===== Input =====
+  window.addEventListener('keydown', (e)=>{
+    const k = e.key;
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','a','A','d','D','w','W','s','S'].includes(k)) e.preventDefault();
+    const map = {ArrowLeft:'left', ArrowRight:'right', ArrowUp:'up', ArrowDown:'down', a:'left', A:'left', d:'right', D:'right', w:'up', W:'up', s:'down', S:'down'};
+    const dir = map[k]; if(dir) move(dir);
+  });
+
+  // Touch swipe
+  let tStart=null;
+  elBoard.addEventListener('touchstart',(e)=>{ if(e.touches.length===1) tStart={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()}; }, {passive:true});
+  elBoard.addEventListener('touchmove',(e)=>{}, {passive:true});
+  elBoard.addEventListener('touchend',(e)=>{
+    if(!tStart) return;
+    const dx = (e.changedTouches[0].clientX - tStart.x);
+    const dy = (e.changedTouches[0].clientY - tStart.y);
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if(Math.max(ax,ay) > 20){
+      if(ax>ay) move(dx>0?'right':'left'); else move(dy>0?'down':'up');
+    }
+    tStart=null;
+  });
+
+  // Buttons
+  btnNew.addEventListener('click', ()=> startGame());
+  btnUndo.addEventListener('click', ()=>{
+    if(!history) return;
+    GRID = deserialize(history.gridJSON).map(row=>row.map(t=>t?{...t}:null));
+    // restore nextId safely
+    nextId = 1 + GRID.flat().reduce((m,t)=> t?Math.max(m,t.id):m,0);
+    score = history.score;
+    history = null;
+    drawGrid(); drawTiles();
+  });
+  btnMute.addEventListener('click', ()=>{
+    muted = !muted;
+    btnMute.textContent = muted? '🔇 음소거 해제' : '🔊 음소거';
+    btnMute.setAttribute('aria-pressed', String(muted));
+  });
+  elSize.addEventListener('change', ()=> startGame(true));
+  window.addEventListener('resize', ()=> drawTiles());
+
+  // Simple toast
+  let toastTimer=null;
+  function toast(msg){
+    let el = document.getElementById('toast');
+    if(!el){
+      el = document.createElement('div');
+      el.id='toast';
+      el.style.position='fixed';
+      el.style.left='50%'; el.style.top='16px';
+      el.style.transform='translateX(-50%)';
+      el.style.padding='8px 12px';
+      el.style.background='#1b2145';
+      el.style.border='1px solid #2b325c';
+      el.style.borderRadius='10px';
+      el.style.color='var(--ink)';
+      el.style.zIndex='999';
+      document.body.appendChild(el);
+    }
+    el.textContent=msg; el.style.opacity='1';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ el.style.transition='opacity .3s'; el.style.opacity='0'; }, 1300);
+  }
+
+  // ===== Boot =====
+  startGame();
+})();
+</script>
+</body>
+</html>

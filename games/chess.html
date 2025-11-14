@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chess – v2 (Human / AI) – no en passant</title>
+  <style>
+    :root{--bg:#0e1220;--ink:#e9edff;--muted:#97a2c5;--panel:#171a2f;--accent:#7aa2ff;--red:#ff9aa2}
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px}
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    h1{font-size:22px;margin:0}
+    .btn{padding:8px 12px;border:1px solid #2a315e;border-radius:12px;background:#1b2145;color:var(--ink);cursor:pointer}
+    .btn-primary{background:linear-gradient(180deg,#2e4cff,#2337a7);border-color:#3a50ff}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .tag{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid #2b325c;border-radius:999px;color:var(--muted);font-size:12px}
+    .panel{display:grid;grid-template-columns:minmax(300px,560px) 1fr;gap:12px}
+    @media(max-width:900px){.panel{grid-template-columns:1fr}}
+    .card{background:var(--panel);border:1px solid #242a49;border-radius:16px;padding:12px}
+    #board{width:100%;max-width:560px;aspect-ratio:1;border-radius:12px;overflow:hidden;border:1px solid #222747}
+    svg{display:block;width:100%;height:auto}
+    .square.dark{fill:#2b3b66}
+    .square.light{fill:#0c1833}
+    .hl-move{fill:rgba(138,180,248,.22)}
+    .hl-capture{fill:rgba(255,154,162,.22)}
+    .dot{fill:rgba(122,162,255,.45)}
+    .king-check{stroke:var(--red);stroke-width:3;fill:none}
+    .sidebar h3{margin:.2rem 0 .4rem;font-size:14px;color:var(--muted)}
+    .moves{max-height:420px;overflow:auto;font-size:14px;line-height:1.4;padding:6px;background:#0b0f1e;border:1px solid #222747;border-radius:10px}
+    .footer{color:var(--muted);font-size:13px}
+    .promo{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:10}
+    .promo-inner{background:#111736;border:1px solid #2b325c;border-radius:16px;padding:14px;display:grid;gap:10px}
+    .pieceBtn{font-size:28px;padding:8px 12px;border-radius:10px;background:#1b2145;border:1px solid #2a315e;color:var(--ink);cursor:pointer}
+    .radio{display:flex;gap:6px;align-items:center}
+    select{background:#121632;border:1px solid #2b325c;border-radius:10px;color:var(--ink);padding:6px 10px}
+    .pill{padding:6px 10px;border:1px solid #2b325c;border-radius:999px;background:#121632}
+    .piece{pointer-events:none}
+    .lift{transition:transform .12s ease}
+    .banner{position:absolute;inset:0;display:none;align-items:center;justify-content:center}
+    .banner > div{background:rgba(0,0,0,.55);border:1px solid #2b325c;padding:10px 14px;border-radius:12px;color:#e9edff}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>체스 Demo</h1>
+    <div class="row">
+      <span class="tag">턴 <strong id="turn">White</strong></span>
+      <label class="tag">모드
+        <select id="mode">
+          <option value="hh">2인 로컬</option>
+          <option value="hw">1인 vs 컴퓨터 (내가 백)</option>
+          <option value="hb">1인 vs 컴퓨터 (내가 흑)</option>
+        </select>
+      </label>
+      <label class="tag">레벨
+        <select id="difficulty">
+          <option value="1">Lv 1 (하수)</option>
+          <option value="2" selected>Lv 2 (중수)</option>
+          <option value="3">Lv 3 (고수)</option>
+        </select>
+      </label>
+      <button id="btn-new" class="btn btn-primary">새 게임</button>
+      <button id="btn-undo" class="btn">되돌리기</button>
+      <label class="tag radio"><input id="flip" type="checkbox"/> 보드 뒤집기</label>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="card" style="position:relative">
+      <div id="board"></div>
+      <div class="banner" id="gameover"><div id="gameover-text">Game Over</div></div>
+      <div class="footer" id="status" style="margin-top:8px">Ready.</div>
+    </div>
+    <div class="card sidebar">
+      <h3>수순</h3>
+      <div class="moves" id="moves"></div>
+      <h3 style="margin-top:10px">옵션</h3>
+      <div class="row">
+        <button id="btn-copy-fen" class="btn">FEN 복사</button>
+        <button id="btn-load-start" class="btn">초기 배치</button>
+      </div>
+      <p class="footer" style="margin-top:10px">
+        • 클릭/터치로 말 선택 → 가능한 수 표시 → 이동<br/>
+        • 특수규칙: 캐슬링, 승진, 체크/체크메이트, 스테일메이트 처리. <b>(앙파상 비활성화)</b><br/>
+        • AI: 미니맥스 + 알파베타 (깊이 1~3), 기본 평가(말 값 + 활동성).
+      </p>
+      <div class="pill" id="ai-hint" style="display:none;margin-top:10px">컴퓨터 생각 중...</div>
+    </div>
+  </div>
+</div>
+
+<!-- 승진 모달 -->
+<div class="promo" id="promo">
+  <div class="promo-inner">
+    <div style="color:#9ea7c8">승진할 기물을 고르세요</div>
+    <div class="row" id="promo-btns"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const $=(id)=>document.getElementById(id);
+  const TURN=$('turn'), STATUS=$('status'), MOVES_EL=$('moves'), BOARD_EL=$('board');
+  const MODE_SEL=$('mode'), DIFF_SEL=$('difficulty'), AI_HINT=$('ai-hint');
+  const BANNER=$('gameover'), BANNER_TEXT=$('gameover-text');
+
+  const WHITE='w', BLACK='b';
+  const PIECES={'P':'♙','N':'♘','B':'♗','R':'♖','Q':'♕','K':'♔','p':'♟','n':'♞','b':'♝','r':'♜','q':'♛','k':'♚'};
+  const START_FEN='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+  let state={
+    board: emptyBoard(),
+    turn: WHITE,
+    castling:{K:true,Q:true,k:true,q:true},
+    ep:null, halfmove:0, fullmove:1,
+    history:[],
+    flip:false,
+    mode:'hh', aiDepth:2,
+    over:false
+  };
+
+  function emptyBoard(){ return Array.from({length:8},()=>Array(8).fill(null)); }
+  function rcToSq(r,c){ return 'abcdefgh'[c]+(8-r); }
+  function sqToRC(s){ const f='abcdefgh'.indexOf(s[0]); const r=8-parseInt(s[1],10); return [r,f]; }
+  function colorOf(v){ if(!v) return null; return v===v.toUpperCase()?WHITE:BLACK; }
+  function setStatus(t){ STATUS.textContent=t; }
+  function updateTurnHUD(){ TURN.textContent=state.turn===WHITE?'White':'Black'; }
+  function showGameOver(text){ state.over=true; BANNER_TEXT.textContent=text; BANNER.style.display='flex'; }
+  function hideGameOver(){ state.over=false; BANNER.style.display='none'; }
+
+  // ==== FEN ====
+  function loadFEN(fen){
+    const [piece,active,castle,ep,half,full]=fen.trim().split(/\s+/);
+    const rows=piece.split('/');
+    state.board=emptyBoard();
+    for(let r=0;r<8;r++){
+      let c=0; for(const ch of rows[r]){ if(/[1-8]/.test(ch)) c+=Number(ch); else { state.board[r][c]=ch; c++; } }
+    }
+    state.turn=(active==='w')?WHITE:BLACK;
+    state.castling={K:false,Q:false,k:false,q:false};
+    for(const ch of castle){ if('KQkq'.includes(ch)) state.castling[ch]=true; }
+    state.ep=(ep==='-')?null:ep;
+    state.halfmove=Number(half)||0; state.fullmove=Number(full)||1;
+    state.history=[]; hideGameOver(); state.over=false;
+    updateTurnHUD(); draw();
+  }
+  function toFEN(){
+    let rows=[];
+    for(let r=0;r<8;r++){
+      let s='',run=0;
+      for(let c=0;c<8;c++){
+        const v=state.board[r][c];
+        if(!v) run++; else { if(run){s+=run;run=0;} s+=v; }
+      }
+      if(run) s+=run; rows.push(s);
+    }
+    let castle=''; for(const k of ['K','Q','k','q']) castle+=state.castling[k]?k:''; if(!castle) castle='-';
+    const ep='-'; // 앙파상 비활성화: FEN도 항상 '-'
+    return `${rows.join('/') } ${state.turn} ${castle} ${ep} ${state.halfmove} ${state.fullmove}`;
+  }
+
+  // ==== Board (flip-safe) ====
+  const SQ=70, SVGNS='http://www.w3.org/2000/svg';
+  let svg, sel=null, legal=[];
+
+  function initBoard(){
+    svg=document.createElementNS(SVGNS,'svg');
+    svg.setAttribute('viewBox',`0 0 ${SQ*8} ${SQ*8}`);
+    svg.addEventListener('pointerdown', onBoardClick);
+    BOARD_EL.innerHTML=''; BOARD_EL.appendChild(svg);
+  }
+  function drawPos(r,c){ const rr=state.flip?(7-r):r; const cc=state.flip?(7-c):c; return {x:cc*SQ,y:rr*SQ}; }
+  function clientToRC(e){
+    const rect=svg.getBoundingClientRect();
+    const nx=(e.clientX-rect.left)/rect.width;
+    const ny=(e.clientY-rect.top)/rect.height;
+    let c=Math.floor(nx*8), r=Math.floor(ny*8);
+    if(state.flip){ c=7-c; r=7-r; }
+    c=Math.max(0,Math.min(7,c)); r=Math.max(0,Math.min(7,r));
+    return [r,c];
+  }
+  function onBoardClick(e){
+    if(state.over) return;
+    if(isAITurn()) return;
+    const [r,c]=clientToRC(e);
+    const sq=rcToSq(r,c);
+    const v=state.board[r][c];
+    const side=v && colorOf(v);
+    if(v && side===state.turn){
+      sel=sq; legal=listLegalMovesFrom(sq); draw(); return;
+    }
+    if(sel){
+      const mv=legal.find(m=>m.tr===r&&m.tc===c);
+      if(mv){ playMove(mv); }
+      sel=null; legal=[]; draw();
+    }
+  }
+
+  function draw(){
+    while(svg.lastChild) svg.removeChild(svg.lastChild);
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const {x,y}=drawPos(r,c);
+      const rect=document.createElementNS(SVGNS,'rect');
+      rect.setAttribute('x',x); rect.setAttribute('y',y);
+      rect.setAttribute('width',SQ); rect.setAttribute('height',SQ);
+      rect.setAttribute('class',`square ${(r+c)%2===0?'light':'dark'}`);
+      svg.appendChild(rect);
+    }
+    if(sel){
+      const [sr,sc]=sqToRC(sel); const {x,y}=drawPos(sr,sc);
+      const hl=document.createElementNS(SVGNS,'rect');
+      hl.setAttribute('x',x); hl.setAttribute('y',y);
+      hl.setAttribute('width',SQ); hl.setAttribute('height',SQ);
+      hl.setAttribute('class','hl-move'); svg.appendChild(hl);
+      for(const m of legal){
+        const {x:mx,y:my}=drawPos(m.tr,m.tc);
+        if(m.capture){
+          const cap=document.createElementNS(SVGNS,'rect');
+          cap.setAttribute('x',mx); cap.setAttribute('y',my);
+          cap.setAttribute('width',SQ); cap.setAttribute('height',SQ);
+          cap.setAttribute('class','hl-capture'); svg.appendChild(cap);
+        }else{
+          const dot=document.createElementNS(SVGNS,'circle');
+          dot.setAttribute('cx',mx+SQ/2); dot.setAttribute('cy',my+SQ/2);
+          dot.setAttribute('r',10); dot.setAttribute('class','dot'); svg.appendChild(dot);
+        }
+      }
+    }
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const v=state.board[r][c]; if(!v) continue;
+      const isSelected=sel && (rcToSq(r,c)===sel);
+      const {x,y}=drawPos(r,c);
+      if(isSelected){
+        const shadow=document.createElementNS(SVGNS,'ellipse');
+        shadow.setAttribute('cx',x+SQ/2); shadow.setAttribute('cy',y+SQ*0.76);
+        shadow.setAttribute('rx',SQ*0.22); shadow.setAttribute('ry',SQ*0.09);
+        shadow.setAttribute('fill','rgba(0,0,0,.35)'); svg.appendChild(shadow);
+      }
+      const t=document.createElementNS(SVGNS,'text');
+      const isW=(v===v.toUpperCase());
+      t.setAttribute('x',x+SQ/2);
+      t.setAttribute('y',y+(isSelected?SQ*0.62:SQ*0.7));
+      t.setAttribute('text-anchor','middle');
+      t.setAttribute('font-size','52'); t.setAttribute('font-weight','700');
+      t.setAttribute('fill',isW?'#e9edff':'#0b1530');
+      t.setAttribute('stroke',isW?'#0a1128':'#e9edff'); t.setAttribute('stroke-width','1.2');
+      t.style.paintOrder='stroke'; t.setAttribute('class','piece lift');
+      t.textContent=PIECES[v]; svg.appendChild(t);
+    }
+    const inCheckSq=kingInCheckSquare(state.turn);
+    if(inCheckSq){
+      const [r,c]=sqToRC(inCheckSq); const {x,y}=drawPos(r,c);
+      const ring=document.createElementNS(SVGNS,'rect');
+      ring.setAttribute('x',x+3); ring.setAttribute('y',y+3);
+      ring.setAttribute('width',SQ-6); ring.setAttribute('height',SQ-6);
+      ring.setAttribute('rx',6); ring.setAttribute('class','king-check'); svg.appendChild(ring);
+    }
+  }
+
+  // ==== Move gen / rules ====
+  function inBounds(r,c){ return r>=0&&r<8&&c>=0&&c<8; }
+
+  function listLegalMovesFrom(sq){
+    const [r,c]=sqToRC(sq); const v=state.board[r][c]; if(!v) return [];
+    const side=colorOf(v); const moves=pseudoMoves(r,c,v);
+    const legal=[];
+    for(const m of moves){
+      const snap=snapshotState();
+      applyQuiet(m,true);
+      if(!isKingInCheck(side)) legal.push(m);
+      restoreSnapshot(snap);
+    }
+    return legal;
+  }
+
+  function pseudoMoves(r,c,v){
+    const side=colorOf(v), opp=(side===WHITE?BLACK:WHITE);
+    const out=[];
+    const push=(tr,tc,opts={})=>{
+      if(!inBounds(tr,tc)) return;
+      const t=state.board[tr][tc];
+      if(!t){ out.push({sr:r,sc:c,tr,tc,piece:v,capture:false,...opts}); return true; }
+      if(colorOf(t)!==side){ out.push({sr:r,sc:c,tr,tc,piece:v,capture:true,...opts}); return false; }
+      return false;
+    };
+    switch(v.toLowerCase()){
+      case 'p':{
+        const dir=(side===WHITE)?-1:1, start=(side===WHITE)?6:1, promRow=(side===WHITE)?0:7;
+        // 전진(빈칸만)
+        if(!state.board[r+dir]?.[c]){
+          push(r+dir,c,{prom:(r+dir)===promRow});
+          if(r===start && !state.board[r+dir*2]?.[c] && !state.board[r+dir]?.[c]) push(r+dir*2,c,{dbl:true});
+        }
+        // 대각선 캡처(목적지에 상대 말 있을 때만)
+        for(const dc of [-1,1]){
+          const tr=r+dir, tc=c+dc; if(!inBounds(tr,tc)) continue;
+          const t=state.board[tr][tc]; if(t && colorOf(t)===opp) push(tr,tc,{prom:tr===promRow});
+        }
+        // ⛔ 앙파상 제거: 아래 한 줄을 남겨두지 않습니다.
+        // if(state.ep){ ... }  // <- 삭제
+        return out;
+      }
+      case 'n':{
+        const d=[[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]];
+        for(const [dr,dc] of d){ const tr=r+dr,tc=c+dc; if(!inBounds(tr,tc)) continue; const t=state.board[tr][tc]; if(!t||colorOf(t)===opp) out.push({sr:r,sc:c,tr,tc,piece:v,capture:!!t}); }
+        return out;
+      }
+      case 'b': scan([[1,1],[1,-1],[-1,1],[-1,-1]]); return out;
+      case 'r': scan([[1,0],[-1,0],[0,1],[0,-1]]); return out;
+      case 'q': scan([[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]); return out;
+      case 'k':{
+        for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc){
+          const tr=r+dr,tc=c+dc; if(!inBounds(tr,tc)) continue;
+          const t=state.board[tr][tc]; if(!t||colorOf(t)===opp) out.push({sr:r,sc:c,tr,tc,piece:v,capture:!!t});
+        }
+        const rank=(side===WHITE)?7:0, oppSide=(side===WHITE)?BLACK:WHITE;
+        if(r===rank && c===4 && !isKingInCheck(side)){
+          if((side===WHITE?state.castling.K:state.castling.k) && !state.board[rank][5] && !state.board[rank][6]){
+            if(!squareAttacked(rank,5,oppSide) && !squareAttacked(rank,6,oppSide)) out.push({sr:r,sc:c,tr:rank,tc:6,piece:v,castle:'K'});
+          }
+          if((side===WHITE?state.castling.Q:state.castling.q) && !state.board[rank][1] && !state.board[rank][2] && !state.board[rank][3]){
+            if(!squareAttacked(rank,3,oppSide) && !squareAttacked(rank,2,oppSide)) out.push({sr:r,sc:c,tr:rank,tc:2,piece:v,castle:'Q'});
+          }
+        }
+        return out;
+      }
+    }
+    function scan(dirs){
+      for(const [dr,dc] of dirs){
+        let tr=r+dr, tc=c+dc;
+        while(inBounds(tr,tc)){
+          const t=state.board[tr][tc];
+          if(!t) out.push({sr:r,sc:c,tr,tc,piece:v,capture:false});
+          else { if(colorOf(t)===opp) out.push({sr:r,sc:c,tr,tc,piece:v,capture:true}); break; }
+          tr+=dr; tc+=dc;
+        }
+      }
+    }
+  }
+
+  // ==== Check detection ====
+  function findKing(side){ const k=(side===WHITE)?'K':'k'; for(let r=0;r<8;r++) for(let c=0;c<8;c++) if(state.board[r][c]===k) return rcToSq(r,c); return null; }
+  function isKingInCheck(side){ const sq=findKing(side); if(!sq) return false; const [r,c]=sqToRC(sq); const opp=(side===WHITE)?BLACK:WHITE; return squareAttacked(r,c,opp); }
+  function kingInCheckSquare(side){ return isKingInCheck(side)?findKing(side):null; }
+
+  function squareAttacked(r,c,bySide){
+    // 폰: (r,c)가 bySide의 폰에게 공격받으려면
+    // 백 폰은 (r+1,c±1), 흑 폰은 (r-1,c±1)에 있어야 함
+    const pawnRow = r + (bySide===WHITE ? 1 : -1);
+    for(const dc of [-1,1]){
+      const pr=pawnRow, pc=c+dc;
+      if(inBounds(pr,pc) && state.board[pr][pc]===(bySide===WHITE?'P':'p')) return true;
+    }
+    const nd=[[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]];
+    for(const [dr,dc] of nd){ const tr=r+dr,tc=c+dc; if(inBounds(tr,tc)){ const v=state.board[tr][tc]; if(v && v.toLowerCase()==='n' && colorOf(v)===bySide) return true; } }
+    function ray(dirs,match){
+      for(const [dr,dc] of dirs){
+        let tr=r+dr,tc=c+dc;
+        while(inBounds(tr,tc)){
+          const v=state.board[tr][tc];
+          if(!v){ tr+=dr; tc+=dc; continue; }
+          if(colorOf(v)!==bySide) break;
+          if(match(v)) return true;
+          break;
+        }
+      }
+      return false;
+    }
+    if(ray([[1,0],[-1,0],[0,1],[0,-1]], v=>['r','q'].includes(v.toLowerCase()))) return true;
+    if(ray([[1,1],[1,-1],[-1,1],[-1,-1]], v=>['b','q'].includes(v.toLowerCase()))) return true;
+    for(const dr of [-1,0,1]) for(const dc of [-1,0,1]) if(dr||dc){
+      const tr=r+dr,tc=c+dc; if(inBounds(tr,tc)){ const v=state.board[tr][tc]; if(v && v.toLowerCase()==='k' && colorOf(v)===bySide) return true; }
+    }
+    return false;
+  }
+
+  // ==== Apply / Undo / Promotion ====
+  function snapshotState(){ return {board: state.board.map(r=>r.slice()), turn: state.turn, castling:{...state.castling}, ep: state.ep, half: state.halfmove, full: state.fullmove, over: state.over}; }
+  function restoreSnapshot(s){ state.board=s.board.map(r=>r.slice()); state.turn=s.turn; state.castling={...s.castling}; state.ep=s.ep; state.halfmove=s.half; state.fullmove=s.full; state.over=s.over; hideGameOver(); }
+
+  let pendingPromotion=null;
+
+  function applyQuiet(m,testing){
+    if(state.over) return 'OVER';
+    const {sr,sc,tr,tc,piece}=m; const side=colorOf(piece), opp=(side===WHITE?BLACK:WHITE);
+
+    // 앙파상 비활성화: ep 무시
+    state.ep=null;
+
+    const target=state.board[tr][tc];
+
+    if(m.capture){
+      // 앙파상 제거로, 여기서 m.ep 처리는 필요 없음
+      state.halfmove=0;
+    } else {
+      state.halfmove += (piece.toLowerCase()==='p')?0:1;
+    }
+
+    // 목적지에 왕이 있으면(실전) 즉시 종료
+    if(target && target.toLowerCase()==='k' && !testing){
+      state.board[tr][tc]=state.board[sr][sc]; state.board[sr][sc]=null;
+      if(state.turn===BLACK) state.fullmove++;
+      state.turn=opp; updateTurnHUD();
+      showGameOver((side===WHITE?'Black':'White')+' 체크메이트!');
+      return 'OVER';
+    }
+
+    // 일반 배치
+    state.board[tr][tc]=state.board[sr][sc]; state.board[sr][sc]=null;
+
+    if(piece.toLowerCase()==='p'){
+      state.halfmove=0;
+      // 더블무브 ep 세팅도 하지 않음 (완전 비활성화)
+      if(m.prom){
+        if(testing){ state.board[tr][tc]=(side===WHITE)?'Q':'q'; }
+        else { return 'PROMOTION'; }
+      }
+    }
+
+    if(m.castle){
+      const rank=(side===WHITE)?7:0;
+      if(m.castle==='K'){ state.board[rank][5]=state.board[rank][7]; state.board[rank][7]=null; }
+      else { state.board[rank][3]=state.board[rank][0]; state.board[rank][0]=null; }
+    }
+
+    const moved=piece.toLowerCase();
+    if(moved==='k'){ if(side===WHITE){ state.castling.K=false; state.castling.Q=false; } else { state.castling.k=false; state.castling.q=false; } }
+    if(moved==='r'){
+      if(sr===7&&sc===0) state.castling.Q=false; if(sr===7&&sc===7) state.castling.K=false;
+      if(sr===0&&sc===0) state.castling.q=false; if(sr===0&&sc===7) state.castling.k=false;
+    }
+    if(m.capture){
+      if(tr===7&&tc===0) state.castling.Q=false; if(tr===7&&tc===7) state.castling.K=false;
+      if(tr===0&&tc===0) state.castling.q=false; if(tr===0&&tc===7) state.castling.k=false;
+    }
+
+    if(!testing){
+      if(state.turn===BLACK) state.fullmove++;
+      state.turn=opp; updateTurnHUD();
+    }
+    return 'OK';
+  }
+
+  function playMove(m){
+    if(state.over) return;
+    const snap=snapshotState();
+    const res=applyQuiet(m,false);
+    if(res==='OVER'){ draw(); return; }
+    if(res==='PROMOTION'){
+      pendingPromotion={move:m,snap};
+      openPromotion(colorOf(m.piece));
+      return;
+    }
+    endOfTurnCheck();
+    state.history.push({snap, move:m, fen: toFEN()});
+    logMove(m);
+    draw(); maybeAIMove();
+  }
+
+  function finishPromotion(pieceCode){
+    const prom=$('promo'); prom.style.display='none';
+    const {move,snap}=pendingPromotion; pendingPromotion=null;
+
+    state.board[move.tr][move.tc]=pieceCode;
+
+    if(state.turn===BLACK) state.fullmove++;
+    state.turn = (state.turn===WHITE?BLACK:WHITE);
+    updateTurnHUD();
+
+    endOfTurnCheck();
+    state.history.push({snap, move:{...move, promo:pieceCode}, fen: toFEN()});
+    logMove({...move, promo:pieceCode});
+    draw(); maybeAIMove();
+  }
+
+  function endOfTurnCheck(){
+    if(state.over) return;
+    const sideToMove=state.turn;
+    const legalAny = hasAnyLegalMove(sideToMove);
+    if(!legalAny){
+      if(isKingInCheck(sideToMove)){
+        setStatus((sideToMove===WHITE?'White':'Black')+' 체크메이트!');
+        showGameOver((sideToMove===WHITE?'White':'Black')+' 체크메이트!');
+      }else{
+        setStatus('스테일메이트. 무승부.');
+        showGameOver('스테일메이트. 무승부.');
+      }
+    }
+  }
+  function hasAnyLegalMove(side){
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const v=state.board[r][c];
+      if(v && colorOf(v)===side){
+        if(listLegalMovesFrom(rcToSq(r,c)).length) return true;
+      }
+    }
+    return false;
+  }
+
+  // ==== Promotion UI ====
+  function openPromotion(side){
+    const prom=$('promo'), btns=$('promo-btns'); btns.innerHTML='';
+    const opts=(side===WHITE)?['Q','R','B','N']:['q','r','b','n'];
+    for(const p of opts){
+      const b=document.createElement('button');
+      b.className='pieceBtn'; b.textContent=PIECES[p];
+      b.onclick=()=>finishPromotion(p);
+      btns.appendChild(b);
+    }
+    prom.style.display='flex';
+  }
+
+  // ==== Move log ====
+  function logMove(m){
+    const from=rcToSq(m.sr,m.sc), to=rcToSq(m.tr,m.tc);
+    const promo=m.promo?('='+PIECES[m.promo]):'';
+    MOVES_EL.innerHTML += `${from}-${to}${promo}${m.capture?'x':''}<br/>`;
+    MOVES_EL.scrollTop=MOVES_EL.scrollHeight;
+  }
+
+  // ==== Controls ====
+  $('btn-new').onclick=()=>{ loadFEN(START_FEN); MOVES_EL.innerHTML=''; sel=null; legal=[]; setStatus('새 게임 시작.'); maybeAIMove(true); };
+  $('btn-undo').onclick=()=>{
+    if(!state.history.length){ setStatus('되돌릴 수 없습니다.'); return; }
+    const last=state.history.pop();
+    if(last && last.snap){ restoreSnapshot(last.snap); }
+    MOVES_EL.innerHTML=''; for(const h of state.history) logMove(h.move);
+    updateTurnHUD(); draw(); setStatus('되돌렸습니다.');
+  };
+  $('btn-copy-fen').onclick=()=>{ navigator.clipboard.writeText(toFEN()); setStatus('FEN을 클립보드에 복사했습니다.'); };
+  $('btn-load-start').onclick=()=>{ loadFEN(START_FEN); MOVES_EL.innerHTML=''; };
+  $('flip').onchange=(e)=>{ state.flip=e.target.checked; draw(); };
+
+  MODE_SEL.onchange=(e)=>{ state.mode=e.target.value; maybeAIMove(true); };
+  DIFF_SEL.onchange=(e)=>{ state.aiDepth=Number(e.target.value); };
+
+  // ==== AI ====
+  function isAITurn(){ if(state.mode==='hh') return false; if(state.over) return false; const aiSide=(state.mode==='hw')?BLACK:WHITE; return state.turn===aiSide; }
+  function maybeAIMove(force){
+    if(state.mode==='hh' || state.over) return;
+    if(force){ if(!(state.mode==='hb' && state.turn===WHITE)) return; }
+    if(!isAITurn()) return;
+    AI_HINT.style.display='block'; setStatus('컴퓨터 생각 중...');
+    setTimeout(()=>{
+      const aiSide=(state.mode==='hw')?BLACK:WHITE;
+      const best=searchBestMove(aiSide, state.aiDepth);
+      AI_HINT.style.display='none';
+      if(best){ playMove(best); }
+      draw();
+    },30);
+  }
+
+  const VAL={p:100,n:320,b:330,r:500,q:900,k:20000};
+  function evaluate(){
+    let score=0;
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const v=state.board[r][c]; if(!v) continue;
+      score += (colorOf(v)===WHITE?1:-1) * VAL[v.toLowerCase()];
+    }
+    let mobW=0, mobB=0;
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const v=state.board[r][c]; if(!v) continue;
+      const side=colorOf(v); const ms=listLegalMovesFrom(rcToSq(r,c)).length;
+      if(side===WHITE) mobW+=ms; else mobB+=ms;
+    }
+    return score + (mobW-mobB)*0.1;
+  }
+  function allLegalMoves(side){
+    const out=[];
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const v=state.board[r][c]; if(v && colorOf(v)===side){
+        const sq=rcToSq(r,c);
+        for(const m of listLegalMovesFrom(sq)) out.push(m);
+      }
+    }
+    return out;
+  }
+  function opposite(s){ return s===WHITE?BLACK:WHITE; }
+  function orderMoves(ms){ return ms.slice().sort((a,b)=> (b.capture?1:0)-(a.capture?1:0)); }
+  function searchBestMove(side, depth){
+    let best=null; let alpha=-1e9, beta=1e9;
+    const moves=orderMoves(allLegalMoves(side));
+    if(!moves.length) return null;
+    for(const m of moves){
+      const snap=snapshotState();
+      applyQuiet(m,true);
+      const val=-negamax(opposite(side), depth-1, -beta, -alpha);
+      restoreSnapshot(snap);
+      if(val>alpha){ alpha=val; best=m; }
+    }
+    return best;
+  }
+  function negamax(side, depth, alpha, beta){
+    if(depth===0) return (side===WHITE?1:-1)*evaluate();
+    const moves=orderMoves(allLegalMoves(side));
+    if(!moves.length){
+      return (side===WHITE?1:-1)*(isKingInCheck(side)?-99999:0);
+    }
+    for(const m of moves){
+      const snap=snapshotState();
+      applyQuiet(m,true);
+      const val=-negamax(opposite(side), depth-1, -beta, -alpha);
+      restoreSnapshot(snap);
+      if(val>alpha){ alpha=val; if(alpha>=beta) break; }
+    }
+    return alpha;
+  }
+
+  // ==== Boot ====
+  initBoard();
+  loadFEN(START_FEN);
+  state.mode=MODE_SEL.value;
+  state.aiDepth=Number(DIFF_SEL.value);
+  maybeAIMove(true);
+})();
+</script>
+</body>
+</html>

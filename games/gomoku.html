@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Omok / Gomoku – 1P vs AI · 단일 파일 v2</title>
+  <style>
+    :root{--bg:#0e1220;--ink:#e9edff;--muted:#9aa3c8;--panel:#171a2f;--accent:#7aa2ff}
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto}
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
+    header{display:flex;justify-content:space-between;gap:12px;align-items:center}
+    h1{font-size:20px;margin:0}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .panel{background:var(--panel);border:1px solid #242a49;border-radius:16px;padding:12px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+    .btn{padding:8px 12px;border:1px solid #2a315e;border-radius:12px;background:#1b2145;color:var(--ink);cursor:pointer}
+    .tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #2b325c;border-radius:999px;color:var(--muted);font-size:12px}
+    #board{width:100%;max-width:760px;aspect-ratio:1;border-radius:12px;background:#1a1730;touch-action:none}
+    .muted{color:var(--muted)}
+    .hint{font-size:13px;color:var(--muted)}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    select{background:#1b2145;color:var(--ink);border:1px solid #2a315e;border-radius:10px;padding:4px 8px}
+    label.switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>오목 Demo</h1>
+    <div class="row">
+      <button id="btn-undo" class="btn">무르기</button>
+      <button id="btn-reset" class="btn">새로 시작</button>
+    </div>
+  </header>
+
+  <div class="row" style="margin:10px 0">
+    <span class="tag">모드
+      <select id="modeSel">
+        <option value="pvp">2인 대전</option>
+        <option value="ai" selected>1인 vs 컴퓨터</option>
+      </select>
+    </span>
+    <span class="tag">난이도
+      <select id="lvlSel">
+        <option value="1">Lv 1 (초하수)</option>
+        <option value="2">Lv 2 (하수)</option>
+        <option value="3" selected>Lv 3 (중수)</option>
+        <option value="4">Lv 4 (고수)</option>
+        <option value="5">Lv 5 (초고수)</option>
+      </select>
+    </span>
+    <span class="tag">플레이어 색
+      <select id="colorSel">
+        <option value="1" selected>흑 (선)</option>
+        <option value="2">백</option>
+      </select>
+    </span>
+    <span class="tag">보드
+      <select id="sizeSel">
+        <option value="15" selected>15×15 (표준)</option>
+        <option value="19">19×19</option>
+      </select>
+    </span>
+    <span class="tag"><label class="switch"><input id="confirmToggle" type="checkbox" checked> 두 번 탭 착수</label></span>
+  </div>
+
+  <div class="row" style="margin:10px 0">
+    <span class="tag">차례 <strong id="turn">흑</strong></span>
+    <span class="tag">상태: <strong id="status" class="muted">—</strong></span>
+  </div>
+
+  <div class="panel">
+    <canvas id="board" width="760" height="760" aria-label="Omok board"></canvas>
+    <div class="hint" style="margin-top:8px">오목: 같은 색 다섯 알 연속이면 승리(장목/금수 미적용). 모바일은 "두 번 탭(예비→확정)" 기본.</div>
+  </div>
+
+  <div id="aria-live" class="sr-only" aria-live="polite"></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  // ===== Elements =====
+  const cvs = document.getElementById('board');
+  const ctx = cvs.getContext('2d');
+  const DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+  const turnEl = document.getElementById('turn');
+  const statEl = document.getElementById('status');
+  const sizeSel = document.getElementById('sizeSel');
+  const modeSel = document.getElementById('modeSel');
+  const lvlSel = document.getElementById('lvlSel');
+  const colorSel = document.getElementById('colorSel');
+  const confirmToggle = document.getElementById('confirmToggle');
+  const live = document.getElementById('aria-live');
+
+  // ===== Game State =====
+  let N = 15; // 15 or 19
+  let grid = new Array(N*N).fill(0); // 0 empty, 1 black, 2 white
+  let toPlay = 1; // 1=B, 2=W
+  const undoStack = [];
+  let hover = null;
+  let pending = null; // for two-tap confirm
+  let lastMove = null;
+  let ended = false;
+
+  // Mode & AI
+  let mode = 'ai';
+  let playerColor = 1; // 1 or 2
+  let level = 3; // 1..5
+  let aiThinking = false;
+
+  // Helpers
+  function idx(x,y){ return y*N + x; }
+  function inside(x,y){ return x>=0 && y>=0 && x<N && y<N; }
+  function neighbors2(x,y){ const pts=[]; for(let dy=-2;dy<=2;dy++){ for(let dx=-2;dx<=2;dx++){ if(Math.abs(dx)+Math.abs(dy)<=2){ const nx=x+dx, ny=y+dy; if(inside(nx,ny)) pts.push([nx,ny]); } } } return pts; }
+  function setStatus(msg){ statEl.textContent=msg; clearTimeout(setStatus._t); setStatus._t=setTimeout(()=>{ if(statEl.textContent===msg) statEl.textContent='—'; }, 1800); }
+  function announce(msg){ live.textContent=msg; }
+
+  // ===== Win detection =====
+  const DIRS=[[1,0],[0,1],[1,1],[1,-1]];
+  function countDirLocal(g,x,y,dx,dy,color){ let n=0; let cx=x+dx, cy=y+dy; while(inside(cx,cy) && g[idx(cx,cy)]===color){ n++; cx+=dx; cy+=dy; } return n; }
+  function isWinningMoveLocal(g,x,y,color){ for(const [dx,dy] of DIRS){ const a=countDirLocal(g,x,y,dx,dy,color), b=countDirLocal(g,x,y,-dx,-dy,color); if(1+a+b>=5) return true; } return false; }
+
+  // ===== Core rules =====
+  function play(x,y){
+    if(ended) return false; if(!inside(x,y)) return false; if(grid[idx(x,y)]!==0){ setStatus('이미 돌이 있습니다'); return false; }
+    undoStack.push({grid:grid.slice(), toPlay, lastMove, ended});
+    grid[idx(x,y)] = toPlay; lastMove=[x,y];
+    if(isWinningMoveLocal(grid,x,y,toPlay)){ ended=true; setStatus((toPlay===1?'흑':'백')+' 승리!'); draw(); return true; }
+    toPlay = 3 - toPlay; updateHUD(); draw(); return true;
+  }
+  function undo(){ if(aiThinking) return; if(undoStack.length===0) return; const s=undoStack.pop(); grid=s.grid.slice(); toPlay=s.toPlay; lastMove=s.lastMove; ended=s.ended; pending=null; setStatus('무르기'); updateHUD(); draw(); }
+  function reset(size){ if(size) N=size; grid=new Array(N*N).fill(0); toPlay=1; undoStack.length=0; hover=null; pending=null; lastMove=null; ended=false; updateHUD(); fit(); draw(); maybeAI(); }
+
+  // ===== Rendering =====
+  function fit(){ const css=cvs.clientWidth; cvs.width=Math.floor(css*DPR); cvs.height=Math.floor(css*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
+  window.addEventListener('resize', ()=>{ fit(); draw(); });
+  function draw(){
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    const pad=26; const S=(cvs.width/DPR - pad*2)/(N-1);
+    ctx.fillStyle='#2a2b45'; ctx.fillRect(0,0,cvs.width/DPR,cvs.height/DPR);
+    ctx.fillStyle='#2f2a1f'; ctx.globalAlpha=0.2; ctx.fillRect(pad-12,pad-12,(N-1)*S+24,(N-1)*S+24); ctx.globalAlpha=1;
+    ctx.strokeStyle='#b88a2a'; ctx.lineWidth=1.2; ctx.globalAlpha=0.85;
+    for(let i=0;i<N;i++){ const p=pad+i*S; ctx.beginPath(); ctx.moveTo(pad,p); ctx.lineTo(pad+(N-1)*S,p); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p,pad); ctx.lineTo(p,pad+(N-1)*S); ctx.stroke(); }
+    ctx.globalAlpha=1;
+    const star=(N===19)?[3,9,15]:[3,7,11]; const starR=3; ctx.fillStyle='#b88a2a';
+    for(const a of star){ for(const b of star){ const x=pad+a*S,y=pad+b*S; ctx.beginPath(); ctx.arc(x,y,starR,0,Math.PI*2); ctx.fill(); } }
+    for(let y=0;y<N;y++){
+      for(let x=0;x<N;x++){
+        const v=grid[idx(x,y)]; if(v===0) continue; const cx=pad+x*S, cy=pad+y*S, r=S*0.42;
+        const g=ctx.createRadialGradient(cx-r*0.3,cy-r*0.3,r*0.2,cx,cy,r);
+        if(v===1){ g.addColorStop(0,'#444'); g.addColorStop(1,'#111'); } else { g.addColorStop(0,'#fff'); g.addColorStop(1,'#ddd'); }
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+        if(lastMove && lastMove[0]===x && lastMove[1]===y){ ctx.strokeStyle='#7aa2ff'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(cx,cy,r*0.5,0,Math.PI*2); ctx.stroke(); }
+      }
+    }
+    if(pending){ const [px,py]=pending; if(inside(px,py) && grid[idx(px,py)]===0){ const cx=pad+px*S, cy=pad+py*S, r=S*0.42; ctx.globalAlpha=0.45; const g=ctx.createRadialGradient(cx-r*0.3,cy-r*0.3,r*0.2,cx,cy,r); if(toPlay===1){ g.addColorStop(0,'#666'); g.addColorStop(1,'#222'); } else { g.addColorStop(0,'#fff'); g.addColorStop(1,'#ddd'); } ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; ctx.strokeStyle='#7aa2ff'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(cx,cy,r*0.55,0,Math.PI*2); ctx.stroke(); } }
+    if(hover){ const [hx,hy]=hover; const cx=pad+hx*S, cy=pad+hy*S, r=S*0.18; ctx.strokeStyle=(toPlay===1?'#7aa2ff':'#ff9aa2'); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke(); }
+    draw.pad=pad; draw.S=S;
+  }
+
+  // ===== Input =====
+  function xyFromClient(e){ const rect=cvs.getBoundingClientRect(); const px=(e.touches?e.touches[0].clientX:e.clientX)-rect.left; const py=(e.touches?e.touches[0].clientY:e.clientY)-rect.top; const x=Math.round((px-draw.pad)/draw.S); const y=Math.round((py-draw.pad)/draw.S); const gx=draw.pad+x*draw.S, gy=draw.pad+y*draw.S; const dist=Math.hypot(px-gx,py-gy); const maxSnap=Math.min(14, draw.S*0.35); if(dist>maxSnap) return [Infinity,Infinity]; return [x,y]; }
+  function handleTap(x,y){ if(ended) return; if(grid[idx(x,y)]!==0){ setStatus('이미 돌이 있습니다'); return; } if(confirmToggle.checked){ if(pending && pending[0]===x && pending[1]===y){ if(play(x,y)){ pending=null; maybeAI(); } } else { pending=[x,y]; setStatus('한 번 더 누르면 착수합니다'); draw(); } } else { if(play(x,y)) maybeAI(); } }
+  cvs.addEventListener('mousemove', (e)=>{ const [x,y]=xyFromClient(e); hover=(inside(x,y)?[x,y]:null); draw(); });
+  cvs.addEventListener('mouseleave', ()=>{ hover=null; draw(); });
+  cvs.addEventListener('click', (e)=>{ if(aiThinking) return; const [x,y]=xyFromClient(e); if(!inside(x,y)) return; if(mode==='ai' && toPlay!==playerColor) return; handleTap(x,y); });
+  cvs.addEventListener('touchstart', (e)=>{ e.preventDefault(); if(aiThinking) return; const [x,y]=xyFromClient(e); if(!inside(x,y)) return; if(mode==='ai' && toPlay!==playerColor) return; handleTap(x,y); }, {passive:false});
+
+  // ===== HUD =====
+  function updateHUD(){ turnEl.textContent=(toPlay===1?'흑':'백'); announce(`현재 ${toPlay===1?'흑':'백'} 차례`); }
+  document.getElementById('btn-undo').onclick = undo;
+  document.getElementById('btn-reset').onclick = ()=> reset(N);
+  sizeSel.onchange = ()=> reset(parseInt(sizeSel.value,10));
+  modeSel.onchange = ()=>{ mode=modeSel.value; pending=null; draw(); maybeAI(); };
+  lvlSel.onchange = ()=>{ level=parseInt(lvlSel.value,10); };
+  colorSel.onchange = ()=>{ playerColor=parseInt(colorSel.value,10); reset(N); };
+
+  // ===== AI core =====
+  // Zobrist hashing & time guard
+  let Z = null; let TT = null;
+  function initZ(){ Z = Array.from({length: N*N}, () => [0,0,0].map(() => (Math.random()*0x7fffffff)|0)); TT = new Map(); }
+  function hashBoard(g, player){ let h=0|0; for(let i=0;i<g.length;i++){ const v=g[i]; if(v){ h ^= Z[i][v]; } } h ^= (player===2 ? 0x9e3779b : 0x5a5aa55) | 0; return h >>> 0; }
+  const AI_ABORT = { deadline: 0 };
+  function setDeadline(ms){ AI_ABORT.deadline = performance.now() + ms; }
+  function outOfTime(){ return performance.now() > AI_ABORT.deadline; }
+
+  function listCandidates(g){ const cand=new Set(); let hasStone=false; for(let y=0;y<N;y++){ for(let x=0;x<N;x++){ if(g[idx(x,y)]){ hasStone=true; for(const [nx,ny] of neighbors2(x,y)){ if(inside(nx,ny) && g[idx(nx,ny)]===0) cand.add(nx+','+ny); } } } } if(!hasStone){ const c=Math.floor(N/2); return [[c,c]]; } return Array.from(cand).map(k=>k.split(',').map(Number)); }
+  function placeTmp(g,x,y,color){ const ng=g.slice(); ng[idx(x,y)]=color; return ng; }
+
+  // Pattern evaluation
+  function lineStrings(g, color){ const A=(v)=> v===0?'.' : (v===color?'A':'B'); const lines=[]; for(let y=0;y<N;y++){ let s=''; for(let x=0;x<N;x++){ s+=A(g[idx(x,y)]); } lines.push(s); } for(let x=0;x<N;x++){ let s=''; for(let y=0;y<N;y++){ s+=A(g[idx(x,y)]); } lines.push(s); } for(let k=0;k<N;k++){ let s=''; for(let x=0,y=k;y<N&&x<N;x++,y++){ s+=A(g[idx(x,y)]); } lines.push(s); s=''; for(let x=0,y=k;y>=0&&x<N;x++,y--){ s+=A(g[idx(x,y)]); } lines.push(s); } return lines; }
+  function evalBoard(g, color){ const lines=lineStrings(g,color); function count(str,pat){ let n=0,i=0; while((i=str.indexOf(pat,i))!==-1){ n++; i=i+1; } return n; } let score=0; const P={ A5:['AAAAA'], A4o:['.AAAA.'], A4:['AAAA.','.AAAA','A.AAA','AA.AA','AAA.A'], A3o:['.AAA..','..AAA.','.AA.A.','.A.AA.'], B5:['BBBBB'], B4o:['.BBBB.'], B4:['BBBB.','.BBBB','B.BBB','BB.BB','BBB.B'], B3o:['.BBB..','..BBB.','.BB.B.','.B.BB.'] }; for(const s of lines){ for(const p of P.A5) score += count(s,p)*1000000; for(const p of P.A4o) score += count(s,p)*25000; for(const p of P.A4) score += count(s,p)*9000; for(const p of P.A3o) score += count(s,p)*2000; for(const p of P.B5) score -= count(s,p)*1000000; for(const p of P.B4o) score -= count(s,p)*25000; for(const p of P.B4) score -= count(s,p)*9000; for(const p of P.B3o) score -= count(s,p)*2000; } const mid=(N-1)/2; let infl=0; for(let y=0;y<N;y++){ for(let x=0;x<N;x++){ const v=g[idx(x,y)]; if(!v) continue; const d=Math.hypot(x-mid,y-mid); infl += (v===color?1:-1)*(1/(1+d)); } } return score + infl*200; }
+
+  function orderMoves(g, moves, me, opp){ const mid=(N-1)/2; const base = evalBoard(g, me); const arr = moves.map(([x,y])=>{ let pri = 0; const ng=placeTmp(g,x,y,me); if(isWinningMoveLocal(ng,x,y,me)) pri += 1e9; const nb=placeTmp(g,x,y,opp); if(isWinningMoveLocal(nb,x,y,opp)) pri += 5e8; pri += (evalBoard(ng,me)-base); pri += -Math.hypot(x-mid,y-mid)*50; return {x,y,pri}; }).sort((a,b)=> b.pri-a.pri); const TOP = (level<=2?10 : level===3?14 : level===4?18 : 20); return arr.slice(0, TOP).map(o=>[o.x,o.y]); }
+
+  // Threat helpers
+  function lineAt(g, x, y, dx, dy, color){ let s=''; const toA=(v)=> v===0?'.':(v===color?'A':'B'); for(let k=-5;k<=5;k++){ const nx=x+k*dx, ny=y+k*dy; if(inside(nx,ny)) s += toA(g[idx(nx,ny)]); else s += '#'; } return s; }
+  function hasPattern(str, pats){ for(const p of pats){ if(str.indexOf(p)!==-1) return true; } return false; }
+  function isOpenFourAfter(g,x,y,color){ const ng=placeTmp(g,x,y,color); for(const [dx,dy] of DIRS){ const s=lineAt(ng,x,y,dx,dy,color); if(hasPattern(s,['.AAAA.'])) return true; } return false; }
+  function isStraightFourAfter(g,x,y,color){ const ng=placeTmp(g,x,y,color); for(const [dx,dy] of DIRS){ const s=lineAt(ng,x,y,dx,dy,color); if(hasPattern(s,['AAAA.','.AAAA','A.AAA','AA.AA','AAA.A'])) return true; } return false; }
+  function isOpenThreeAfter(g,x,y,color){ const ng=placeTmp(g,x,y,color); for(const [dx,dy] of DIRS){ const s=lineAt(ng,x,y,dx,dy,color); if(hasPattern(s,['.AAA..','..AAA.','.AA.A.','.A.AA.'])) return true; } return false; }
+
+  function generateThreats(g, color){ const opp=3-color; const cand=listCandidates(g); const T={win:[], block:[], ofour:[], sofour:[], othree:[], blockOfour:[], blockOthree:[]}; for(const [x,y] of cand){ const ng=placeTmp(g,x,y,color); if(isWinningMoveLocal(ng,x,y,color)) { T.win.push([x,y]); continue; } const nb=placeTmp(g,x,y,opp); if(isWinningMoveLocal(nb,x,y,opp)) T.block.push([x,y]); if(isOpenFourAfter(g,x,y,color)) T.ofour.push([x,y]); if(isStraightFourAfter(g,x,y,color)) T.sofour.push([x,y]); if(isOpenThreeAfter(g,x,y,color)) T.othree.push([x,y]); if(isOpenFourAfter(g,x,y,opp)) T.blockOfour.push([x,y]); if(isOpenThreeAfter(g,x,y,opp)) T.blockOthree.push([x,y]); if(outOfTime()) break; } const CAP = (level>=5? 8 : 6); for(const k of Object.keys(T)) { T[k] = T[k].slice(0, CAP); } return T; }
+
+  function tssSearch(g, player, depth, maxDepth){ if(outOfTime()) return null; if(depth>maxDepth) return null; const T = generateThreats(g, player); if(T.win.length) return {x:T.win[0][0], y:T.win[0][1]}; const forcing = [...T.block, ...T.ofour, ...T.sofour, ...T.othree]; if(depth===0 && T.blockOfour.length) return {x:T.blockOfour[0][0], y:T.blockOfour[0][1]}; if(depth===0 && !T.ofour.length && !T.sofour.length && T.blockOthree.length) return {x:T.blockOthree[0][0], y:T.blockOthree[0][1]}; for(const [x,y] of forcing){ if(outOfTime()) break; const ng = placeTmp(g,x,y,player); const reply = tssReply(ng, 3-player, depth+1, maxDepth); if(reply && reply.winFor===player) return {x,y}; } return null; }
+  function tssReply(g, player, depth, maxDepth){ if(outOfTime()) return {winFor:null}; const T = generateThreats(g, player); if(T.win.length) return {winFor:player}; if(depth>maxDepth) return {winFor:null}; const forcing = [...T.block, ...T.ofour, ...T.sofour, ...T.othree]; if(forcing.length===0) return {winFor:null}; for(const [x,y] of forcing){ if(outOfTime()) break; const ng = placeTmp(g,x,y,player); const nres = tssReply(ng, 3-player, depth+1, maxDepth); if(nres.winFor===player) return {winFor:player}; } return {winFor:null}; }
+
+  function aiMove(){
+    const me=toPlay, opp=3-me; const cand0=listCandidates(grid); if(cand0.length===0){ const c=Math.floor(N/2); return {x:c,y:c}; }
+    // 1) Immediate win / block
+    for(const [x,y] of cand0){ const ng=placeTmp(grid,x,y,me); if(isWinningMoveLocal(ng,x,y,me)) return {x,y}; }
+    for(const [x,y] of cand0){ const nb=placeTmp(grid,x,y,opp); if(isWinningMoveLocal(nb,x,y,opp)) return {x,y}; }
+    // Budget
+    const timeBudget = (level<=3)? 140 : (level===4? 600 : 1100); setDeadline(timeBudget);
+    // 2) Threat search first
+    const tss = tssSearch(grid, me, 0, (level>=5? 6 : 4)); if(tss) return tss;
+    // 3) Fallback: α–β
+    const maxDepth   = (level<=2)? 1 : (level===3? 2 : (level===4? 3 : 4));
+    function search(g, depth, alpha, beta, player){ if(depth<=0 || outOfTime()) return evalBoard(g, me); const h = hashBoard(g, player); const t = TT.get(h); if(t && t.depth>=depth){ if(t.flag==='EXACT') return t.score; if(t.flag==='LOW' && t.score>alpha) alpha=t.score; if(t.flag==='HIGH' && t.score<beta) beta=t.score; if(alpha>=beta) return t.score; } const movesRaw=listCandidates(g); if(movesRaw.length===0) return evalBoard(g, me); const moves=orderMoves(g, movesRaw, player, 3-player); let flag='HIGH'; for(const [x,y] of moves){ if(outOfTime()) break; const ng=placeTmp(g,x,y,player); if(isWinningMoveLocal(ng,x,y,player)) return (player===me? 1e15 : -1e15); const sc = -search(ng, depth-1, -beta, -alpha, 3-player); if(sc>alpha){ alpha=sc; flag='EXACT'; } if(alpha>=beta){ flag='LOW'; break; } } TT.set(h,{depth,score:alpha,flag}); return alpha; }
+    initZ(); let bestMove=null; let moves=orderMoves(grid, cand0, me, opp); for(let d=1; d<=maxDepth; d++){ if(outOfTime()) break; let curBest=null; let curScore=-1e20; for(const [x,y] of moves){ if(outOfTime()) break; const ng=placeTmp(grid,x,y,me); const sc = -search(ng, d-1, -1e20, 1e20, opp); if(sc>curScore){ curScore=sc; curBest={x,y}; } } if(curBest) bestMove=curBest; if(bestMove){ moves = moves.sort((a,b)=> (a[0]===bestMove.x&&a[1]===bestMove.y)? -1 : (b[0]===bestMove.x&&b[1]===bestMove.y? 1 : 0)); } }
+    return bestMove || {x:moves[0][0], y:moves[0][1]};
+  }
+
+  function maybeAI(){ if(mode!=='ai') return; if(toPlay !== (3-playerColor)) return; setTimeout(()=>{ const m=aiMove(); if(!m) return; play(m.x,m.y); }, 40); }
+
+  // ===== Boot =====
+  function boot(){ fit(); reset(N); draw(); }
+  document.getElementById('btn-undo').addEventListener('click', undo);
+  document.getElementById('btn-reset').addEventListener('click', ()=> reset(N));
+  sizeSel.addEventListener('change', ()=> reset(parseInt(sizeSel.value,10)));
+  modeSel.addEventListener('change', ()=>{ mode=modeSel.value; pending=null; draw(); maybeAI(); });
+  lvlSel.addEventListener('change', ()=>{ level=parseInt(lvlSel.value,10); });
+  colorSel.addEventListener('change', ()=>{ playerColor=parseInt(colorSel.value,10); reset(N); });
+  boot();
+})();
+</script>
+</body>
+</html>
