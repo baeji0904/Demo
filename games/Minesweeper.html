@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Minesweeper – HTML5 (우클릭/터치 깃발 fix)</title>
+<style>
+  :root{
+    --bg:#0e1220; --panel:#141933; --ink:#e9edff; --muted:#9aa3c7; --line:#242a49; --accent:#7aa2ff;
+    --safe:#1a2146; --reveal:#0b0f1e; --flag:#ff9aa2; --mine:#ffd685; --zero:#11172d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto}
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{margin:0;font-size:22px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .tag{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:#121632;color:var(--muted)}
+  select,.btn{background:#1b2145;border:1px solid #2b325c;color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .board-wrap{margin-top:12px}
+  .board{
+    display:grid;gap:6px;background:var(--panel);padding:10px;border:1px solid var(--line);border-radius:16px;
+    box-shadow:0 10px 28px rgba(0,0,0,.25);
+    user-select:none; -webkit-user-select:none; -ms-user-select:none;
+  }
+  .cell{
+    width:34px;height:34px;border-radius:8px;border:1px solid #1e2444; display:grid;place-items:center;
+    font-weight:800; user-select:none; -webkit-user-select:none; touch-action:none;
+    background:var(--safe); color:#dfe6ff;
+    transition:transform .04s ease, background .12s ease, color .12s ease;
+  }
+  .cell:active{transform:scale(.98)}
+  .cell.revealed{background:var(--reveal);border-color:#1a1f3a}
+  .cell.zero{color:#9aa3c7;background:var(--zero)}
+  .cell.flag{background:#2a1b2a;color:#ffd5dc;border-color:#40263f}
+  .cell.mine{background:#3b2f0f;color:#ffefc4}
+  .n1{color:#7aa2ff} .n2{color:#8ef6d0} .n3{color:#ffd685} .n4{color:#ff9aa2}
+  .n5{color:#b79cff} .n6{color:#c5fffd} .n7{color:#e9edff} .n8{color:#9aa3c7}
+  .hud{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;place-items:center;
+    color:#e9edff;font-size:22px;font-weight:800;text-align:center;padding:20px
+  }
+  .overlay.show{display:grid}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>지뢰찾기</h1>
+    <div class="row">
+      <label class="tag">난이도
+        <select id="difficulty">
+          <option value="beginner">Beginner (9×9, 10)</option>
+          <option value="intermediate">Intermediate (16×16, 40)</option>
+          <option value="expert">Expert (30×16, 99)</option>
+        </select>
+      </label>
+      <button id="btn-new" class="btn">새 게임</button>
+    </div>
+  </header>
+
+  <div class="hud">
+    <span class="tag">⏱ 시간 <b id="time">0.0</b>s</span>
+    <span class="tag">💣 남은 지뢰 <b id="mines-left">0</b></span>
+    <span class="tag">🏆 최고기록 <b id="best">—</b></span>
+    <span class="tag" id="hint">좌클릭: 열기 / 우클릭: 깃발 / 숫자칸 더블클릭: 주변 동시 열기</span>
+  </div>
+
+  <div class="board-wrap">
+    <div id="board" class="board" role="grid" aria-label="Minesweeper Board"></div>
+  </div>
+</div>
+
+<div id="overlay" class="overlay"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ====== DOM ======
+  const $ = id => document.getElementById(id);
+  const elBoard = $('board');
+  const elTime = $('time');
+  const elMinesLeft = $('mines-left');
+  const elBest = $('best');
+  const elDiff = $('difficulty');
+  const btnNew = $('btn-new');
+  const overlay = $('overlay');
+
+  // ====== Config / State ======
+  const DIFFS = {
+    beginner:      { w:9,  h:9,  mines:10, key:'best.beginner' },
+    intermediate:  { w:16, h:16, mines:40, key:'best.intermediate' },
+    expert:        { w:30, h:16, mines:99, key:'best.expert' },
+  };
+  let cfg = DIFFS.beginner;
+
+  let grid = []; // 2D cells
+  let firstClick = true;
+  let started = false;
+  let timer = null;
+  let startAt = 0;
+  let elapsed = 0;
+  let revealedCount = 0;
+  let flaggedCount = 0;
+  let gameOver = false;
+
+  // ====== 전역: 보드에서 우클릭 메뉴 막기 ======
+  document.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('#board')) e.preventDefault();
+  });
+
+  // ====== Helpers ======
+  function bestStr(){
+    const b = localStorage.getItem(cfg.key);
+    return b ? (Number(b).toFixed(1)+'s') : '—';
+  }
+  function setBestIfNeeded(){
+    const prev = Number(localStorage.getItem(cfg.key) || Infinity);
+    if(elapsed < prev){
+      localStorage.setItem(cfg.key, String(elapsed));
+    }
+    elBest.textContent = bestStr();
+  }
+  function neighbors(r,c){
+    const arr=[];
+    for(let dr=-1; dr<=1; dr++){
+      for(let dc=-1; dc<=1; dc++){
+        if(dr===0 && dc===0) continue;
+        const nr=r+dr, nc=c+dc;
+        if(nr>=0 && nr<cfg.h && nc>=0 && nc<cfg.w) arr.push([nr,nc]);
+      }
+    }
+    return arr;
+  }
+  function forEachCell(fn){
+    for(let r=0;r<cfg.h;r++) for(let c=0;c<cfg.w;c++) fn(r,c,grid[r][c]);
+  }
+
+  // ====== Game Setup ======
+  function newGrid(){
+    grid = Array.from({length:cfg.h},()=>Array.from({length:cfg.w},()=>({
+      mine:false, num:0, revealed:false, flagged:false, el:null
+    })));
+  }
+
+  function plantMines(excludeR, excludeC){
+    // 첫 클릭 안전: 선택 칸 + 주변 8칸은 지뢰 금지
+    const blocked = new Set();
+    blocked.add(excludeR+','+excludeC);
+    for(const [nr,nc] of neighbors(excludeR,excludeC)){
+      blocked.add(nr+','+nc);
+    }
+    // 후보 목록
+    const cells=[];
+    for(let r=0;r<cfg.h;r++) for(let c=0;c<cfg.w;c++){
+      const key=r+','+c;
+      if(!blocked.has(key)) cells.push([r,c]);
+    }
+    // 셔플 후 앞에서 mines개 선택
+    for(let i=cells.length-1;i>0;i--){
+      const j = (Math.random()* (i+1))|0;
+      const t = cells[i]; cells[i]=cells[j]; cells[j]=t;
+    }
+    for(let i=0;i<cfg.mines;i++){
+      const [r,c] = cells[i];
+      grid[r][c].mine = true;
+    }
+    // 숫자 계산
+    forEachCell((r,c,cell)=>{
+      if(cell.mine){ cell.num=-1; return; }
+      let n=0;
+      for(const [nr,nc] of neighbors(r,c)) if(grid[nr][nc].mine) n++;
+      cell.num=n;
+    });
+  }
+
+  function drawBoard(){
+    elBoard.style.gridTemplateColumns = `repeat(${cfg.w}, 34px)`;
+    elBoard.style.gridTemplateRows = `repeat(${cfg.h}, 34px)`;
+    elBoard.innerHTML='';
+    for(let r=0;r<cfg.h;r++){
+      for(let c=0;c<cfg.w;c++){
+        const d=document.createElement('div');
+        d.className='cell';
+        d.setAttribute('role','gridcell');
+        d.setAttribute('aria-label','hidden');
+        d.dataset.r=r; d.dataset.c=c;
+        attachCellEvents(d);
+        elBoard.appendChild(d);
+        grid[r][c].el = d;
+      }
+    }
+  }
+
+  function reset(){
+    firstClick = true;
+    started = false;
+    gameOver = false;
+    revealedCount=0; flaggedCount=0;
+    elapsed=0; updateTimer(0);
+    elMinesLeft.textContent = String(cfg.mines-flaggedCount);
+    elBest.textContent = bestStr();
+    overlay.classList.remove('show');
+    if(timer){ clearInterval(timer); timer=null; }
+    newGrid(); drawBoard();
+  }
+
+  // ====== Reveal / Flag / Win-Lose ======
+  function startTimer(){
+    started = true;
+    startAt = performance.now();
+    timer = setInterval(()=>{
+      elapsed = (performance.now() - startAt)/1000;
+      updateTimer(elapsed);
+    }, 100);
+  }
+  function stopTimer(){
+    if(timer){ clearInterval(timer); timer=null; }
+  }
+  function updateTimer(t){
+    elTime.textContent = t.toFixed(1);
+  }
+  function showOverlay(text){
+    overlay.textContent = text;
+    overlay.classList.add('show');
+  }
+
+  function reveal(r,c){
+    const cell = grid[r][c];
+    if(cell.revealed || cell.flagged || gameOver) return;
+    cell.revealed = true;
+    revealedCount++;
+
+    const el = cell.el;
+    el.classList.add('revealed');
+    el.classList.remove('flag');
+    el.textContent = '';
+    el.setAttribute('aria-label', cell.mine ? 'mine' : String(cell.num));
+
+    if(cell.mine){
+      el.classList.add('mine');
+      lose();
+      return;
+    }
+
+    if(cell.num>0){
+      el.textContent = String(cell.num);
+      el.classList.add('n'+cell.num);
+    }else{
+      el.classList.add('zero');
+      // flood fill
+      for(const [nr,nc] of neighbors(r,c)){
+        if(!grid[nr][nc].revealed && !grid[nr][nc].flagged){
+          reveal(nr,nc);
+        }
+      }
+    }
+  }
+
+  function toggleFlag(r,c){
+    const cell = grid[r][c];
+    if(cell.revealed || gameOver) return;
+    cell.flagged = !cell.flagged;
+    const el = cell.el;
+    if(cell.flagged){
+      el.classList.add('flag');
+      el.textContent = '🚩';
+      flaggedCount++;
+    }else{
+      el.classList.remove('flag');
+      el.textContent = '';
+      flaggedCount--;
+    }
+    elMinesLeft.textContent = String(cfg.mines-flaggedCount);
+  }
+
+  function chord(r,c){
+    const cell = grid[r][c];
+    if(!cell.revealed || cell.num<=0 || gameOver) return;
+    const neigh = neighbors(r,c);
+    const flags = neigh.filter(([nr,nc])=>grid[nr][nc].flagged).length;
+    if(flags !== cell.num) return;
+    for(const [nr,nc] of neigh){
+      if(!grid[nr][nc].flagged && !grid[nr][nc].revealed){
+        reveal(nr,nc);
+        if(gameOver) return;
+      }
+    }
+  }
+
+  function checkWin(){
+    const total = cfg.w*cfg.h;
+    if(gameOver) return false;
+    if(revealedCount === total - cfg.mines){
+      win();
+      return true;
+    }
+    return false;
+  }
+
+  function revealAllMines(){
+    forEachCell((r,c,cell)=>{
+      if(cell.mine){
+        const el = cell.el;
+        if(!cell.flagged) el.textContent='💣';
+        el.classList.add('mine','revealed');
+      }
+    });
+  }
+
+  function win(){
+    gameOver = true;
+    stopTimer();
+    setBestIfNeeded();
+    showOverlay('🎉 성공! 기록: '+elapsed.toFixed(1)+'s');
+  }
+  function lose(){
+    gameOver = true;
+    stopTimer();
+    revealAllMines();
+    showOverlay('💥 실패! 새 게임을 눌러 재도전');
+  }
+
+  // ====== 입력 바인딩 (전체 교체된 버전) ======
+  function attachCellEvents(el){
+    let pressTimer=null, pressed=false, moved=false;
+
+    const onRevealLike = () => {
+      const r=+el.dataset.r, c=+el.dataset.c;
+      if(firstClick){ plantMines(r,c); firstClick=false; }
+      if(!started) startTimer();
+
+      const cell = grid[r][c];
+      if(cell.revealed && cell.num>0){
+        chord(r,c);
+      }else{
+        reveal(r,c);
+      }
+      checkWin();
+    };
+
+    const onFlagLike = () => {
+      const r=+el.dataset.r, c=+el.dataset.c;
+      toggleFlag(r,c);
+    };
+
+    // --- 마우스 전용: 왼쪽/오른쪽 버튼 구분 ---
+    el.addEventListener('mousedown', (e)=>{
+      // 보드 내에서 기본 동작 차단: 텍스트 선택/드래그/컨텍스트 등
+      e.preventDefault();
+      // 왼쪽 버튼
+      if(e.button === 0){
+        onRevealLike();
+      }
+      // 오른쪽 버튼
+      else if(e.button === 2){
+        onFlagLike();
+      }
+    });
+
+    // 더블클릭: 숫자칸에서 주변 동시 열기 (왼쪽 버튼)
+    el.addEventListener('dblclick', (e)=>{
+      e.preventDefault();
+      if(e.button !== 0) return;
+      const r=+el.dataset.r, c=+el.dataset.c;
+      chord(r,c);
+      checkWin();
+    });
+
+    // --- 터치/펜: 길게 눌러 깃발, 짧게 탭은 열기 ---
+    el.addEventListener('pointerdown',(e)=>{
+      if(e.pointerType === 'mouse') return;
+      pressed=true; moved=false;
+      pressTimer = setTimeout(()=>{
+        if(pressed && !moved){
+          onFlagLike();   // 길게 눌러 깃발
+          pressed=false;
+        }
+      }, 420);
+    });
+    el.addEventListener('pointermove',(e)=>{
+      if(e.pointerType === 'mouse') return;
+      moved=true;
+    });
+    el.addEventListener('pointerup',(e)=>{
+      if(e.pointerType === 'mouse') return;
+      if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; }
+      if(pressed){ onRevealLike(); } // 짧게 탭 → 열기
+      pressed=false;
+    });
+    el.addEventListener('pointercancel',()=>{
+      if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; }
+      pressed=false;
+    });
+  }
+
+  // ====== UI Events ======
+  btnNew.addEventListener('click', reset);
+  elDiff.addEventListener('change', ()=>{
+    cfg = DIFFS[elDiff.value] || DIFFS.beginner;
+    reset();
+  });
+
+  // ====== Boot ======
+  // 큰 보드를 작은 화면에서 보려고 가로 스크롤 허용
+  document.body.style.overflowX='auto';
+  cfg = DIFFS[elDiff.value];
+  reset();
+
+})();
+</script>
+</body>
+</html>
