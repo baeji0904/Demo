@@ -96,7 +96,7 @@
       background:#121632;
       border:1px solid #2b325c;
       border-radius:10px;
-      color:var(--ink);
+      color:#e9edff;
       padding:6px 10px;
       font-size:12px;
     }
@@ -161,8 +161,8 @@
   // ===== 필드/오프셋 =====
   const COLS=10, ROWS=20, CELL=28;
   const WELL_W = COLS*CELL, WELL_H = ROWS*CELL;
-  const WELL_Y = 6; // 필드를 프레임 안에서 아래로 6px 내려서 수직 중앙 정렬
   const OFFSET_X = Math.floor((CANVAS.width - WELL_W) / 2);
+  const WELL_Y = Math.floor((CANVAS.height - WELL_H) / 2); // 필드를 캔버스 세로 중앙에 배치
 
   const COLORS = {
     0:'#101426',
@@ -357,7 +357,6 @@
   }
 
   // ====== 시작 핸디캡 라인 추가 ======
-  // count줄을 바닥부터 채움. 각 줄은 최소 1칸 구멍(랜덤 1~3칸) 보장.
   function addGarbageLines(count){
     count = Math.max(0, Math.min(ROWS-1, count));
     if(count===0) return;
@@ -367,11 +366,10 @@
       while(holeSet.size<holes){ holeSet.add((Math.random()*COLS)|0); }
       const line = Array(COLS).fill(null).map((_,x)=>{
         if(holeSet.has(x)) return 0; // 구멍
-        // 빈칸이 아닌 곳은 임의의 테트리미노 타입으로 색만 빌림
         return TYPES[(Math.random()*TYPES.length)|0];
       });
-      S.board.shift();            // 맨 위 제거
-      S.board.push(line);         // 맨 아래에 추가
+      S.board.shift();
+      S.board.push(line);
     }
   }
 
@@ -426,7 +424,7 @@
     S.ghostY=gy;
   }
 
-  // 입력: 회전은 ↑만
+  // 입력
   window.addEventListener('keydown', (e)=>{
     if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' ','c','C','p','P'].includes(e.key)) e.preventDefault();
     if(!S.running || S.paused || S.over){
@@ -489,11 +487,10 @@
     const startLv = Math.max(1, Math.min(10, S.startLevel));
     S.board = makeBoard();
     S.cur=null; S.next.length=0; S.hold=null; S.holdUsed=false;
-    S.score=0; S.level=startLv; S.lines=(startLv-1)*10; // 시작 레벨 반영
+    S.score=0; S.level=startLv; S.lines=(startLv-1)*10;
     S.over=false; S.paused=false; S.running=true;
     S.dropDelay = levelDelay(S.level); S.dropTimer=0;
 
-    // === 핸디캡 라인 추가 ===
     addGarbageLines(startLv - 1);
 
     refillBag(); spawn(); updateHUD();
@@ -523,15 +520,13 @@
     }
   }
 
-  // 렌더 (가운데 정렬)
+  // 렌더
   function draw(){
     ctx.clearRect(0,0,CANVAS.width,CANVAS.height);
     drawWell();
 
-    // 고스트
     if(S.cur){
       for(const c of cells(S.cur,S.cur.x,S.ghostY,S.cur.r)) drawGhostBlock(c.x,c.y);
-      // 현재 조각
       ctx.save();
       for(const c of cells(S.cur)){
         fillCell(c.x,c.y, COLORS[c.t], true);
@@ -539,7 +534,6 @@
       ctx.restore();
     }
 
-    // 고정 블록
     for(let y=0;y<ROWS;y++){
       for(let x=0;x<COLS;x++){
         const t=S.board[y][x];
@@ -562,9 +556,8 @@
   function drawWell(){
     ctx.save();
 
-    // 바깥 프레임
     const outerX = OFFSET_X - 14;
-    const outerY = -10;
+    const outerY = WELL_Y - 16;          // 필드 기준으로 위/아래 16px 여유
     const outerW = WELL_W + 28;
     const outerH = WELL_H + 32;
 
@@ -584,7 +577,6 @@
     drawRoundedRect(ctx, outerX+0.5, outerY+0.5, outerW-1, outerH-1, 22);
     ctx.stroke();
 
-    // 안쪽 플레이필드
     const ix = OFFSET_X;
     const iy = WELL_Y;
     const iw = WELL_W;
@@ -595,7 +587,6 @@
     ctx.fillStyle = innerGrad;
     ctx.fillRect(ix, iy, iw, ih);
 
-    // 은은한 수직 빛줄기
     const stripe = ctx.createLinearGradient(ix+iw*0.25,iy,ix+iw*0.75,iy+ih);
     stripe.addColorStop(0,'rgba(90,120,255,0.14)');
     stripe.addColorStop(0.5,'rgba(120,150,255,0.03)');
@@ -603,7 +594,6 @@
     ctx.fillStyle=stripe;
     ctx.fillRect(ix,iy,iw,ih);
 
-    // 그리드
     ctx.strokeStyle = 'rgba(70,82,140,0.42)';
     ctx.lineWidth = 1;
     for(let x=0;x<=COLS;x++){
@@ -631,7 +621,6 @@
     });
   }
 
-  // 오버레이: 텍스트 폭에 맞춰 박스 너비 자동 조절
   function overlay(title){
     const subtitle = 'Space / 시작 버튼으로 다시 플레이';
 
@@ -639,7 +628,6 @@
     ctx.fillStyle='rgba(3,4,14,0.75)';
     ctx.fillRect(0,0,CANVAS.width,CANVAS.height);
 
-    // 텍스트 폭 측정
     ctx.font='bold 24px system-ui';
     const titleWidth = ctx.measureText(title).width;
     ctx.font='12px system-ui';
@@ -667,14 +655,12 @@
     drawRoundedRect(ctx,x+0.5,y+0.5,boxW-1,boxH-1,20);
     ctx.stroke();
 
-    // 타이틀
     ctx.fillStyle='#e9edff';
     ctx.font='bold 24px system-ui';
     ctx.textAlign='center';
     ctx.textBaseline='middle';
     ctx.fillText(title, CANVAS.width/2, y+boxH/2-14);
 
-    // 서브텍스트
     ctx.fillStyle='rgba(185,195,255,0.9)';
     ctx.font='12px system-ui';
     ctx.fillText(subtitle, CANVAS.width/2, y+boxH/2+16);
@@ -684,14 +670,12 @@
   function drawSide(){
     sctx.clearRect(0,0,SIDE.width,SIDE.height);
 
-    // 배경
     const bgGrad = sctx.createLinearGradient(0,0,0,SIDE.height);
     bgGrad.addColorStop(0,'#040616');
     bgGrad.addColorStop(1,'#050719');
     sctx.fillStyle = bgGrad;
     sctx.fillRect(0,0,SIDE.width,SIDE.height);
 
-    // NEXT 텍스트
     sctx.fillStyle='#9ea7c8';
     sctx.font='13px system-ui';
     sctx.fillText('NEXT', 12, 18);
@@ -718,7 +702,6 @@
       y += 64;
     }
 
-    // HOLD
     sctx.fillStyle='#9ea7c8';
     sctx.font='13px system-ui';
     sctx.fillText('HOLD', 180, 18);
