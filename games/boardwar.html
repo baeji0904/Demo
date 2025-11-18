@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>땅따먹기</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; overscroll-behavior: none; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 55%, #000 100%);
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action: none;
+    }
+    .wrap {
+      max-width: 960px;
+      width: 100%;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    h1 { margin: 0; font-size: 22px; letter-spacing: 0.04em; }
+
+    .hud {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      backdrop-filter: blur(8px);
+    }
+
+    .game-shell { position: relative; display: inline-block; }
+    canvas {
+      background: #020617;
+      border-radius: 12px;
+      border: 2px solid #4b5563;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+      image-rendering: pixelated;
+      max-width: 100%;
+      display: block;
+    }
+
+    .overlay, .start-layer {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay { display: none; pointer-events: none; }
+    .overlay-inner {
+      pointer-events: auto;
+      padding: 16px 24px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      text-align: center;
+      min-width: 240px;
+    }
+    .overlay-title { font-size: 20px; margin-bottom: 4px; }
+    .overlay-sub {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-bottom: 10px;
+      white-space: pre-line;
+    }
+    .overlay-inner button {
+      margin-top: 4px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: none;
+      background: #22c55e;
+      color: #022c22;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .start-layer { pointer-events: none; }
+    .start-inner {
+      pointer-events: auto;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.95);
+      border: 1px solid rgba(55,65,81,0.8);
+    }
+    #nicknameInput {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 13px;
+      min-width: 140px;
+      outline: none;
+    }
+    #nicknameInput::placeholder { color: #6b7280; }
+
+    #startButton, #localRankButton {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.6);
+      white-space: nowrap;
+    }
+    #startButton { background: #22c55e; color: #022c22; }
+    #startButton:hover { filter: brightness(1.05); }
+    #localRankButton { background: #0ea5e9; color: #0f172a; }
+    #localRankButton:hover { filter: brightness(1.05); }
+
+    .joystick {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      touch-action: none;
+    }
+    .stick-base {
+      width: 160px;
+      height: 160px;
+      border-radius: 999px;
+      background: radial-gradient(circle at top, #111827, #020617);
+      border: 2px solid #4b5563;
+      position: relative;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      touch-action: none;
+    }
+    .stick-handle {
+      width: 80px;
+      height: 80px;
+      border-radius: 999px;
+      background: radial-gradient(circle at top, #0f172a, #020617);
+      border: 2px solid #9ca3af;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 6px 18px rgba(15,23,42,0.8);
+      touch-action: none;
+    }
+
+    .item-legend {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(55,65,81,0.8);
+      font-size: 12px;
+      max-width: 640px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .legend-item:last-child { margin-bottom: 0; }
+    .legend-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #020617;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .hint {
+      font-size: 13px;
+      color: #9ca3af;
+      text-align: center;
+      max-width: 640px;
+    }
+    .hint kbd {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #6b7280;
+      font-size: 11px;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    #restartBtn {
+      margin-top: 4px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      background: #22c55e;
+      color: #022c22;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(34, 197, 94, 0.4);
+      display: none;
+    }
+    #restartBtn:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+    #restartBtn:active {
+      transform: translateY(0);
+      box-shadow: 0 6px 18px rgba(34, 197, 94, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>땅따묵기</h1>
+
+    <div class="hud">
+      <div class="badge">스테이지: <span id="stage">1</span></div>
+      <div class="badge">점수: <span id="score">0</span></div>
+      <div class="badge">채운 땅: <span id="fill">0</span>%</div>
+      <div class="badge">목표: <span id="target">90</span>%</div>
+      <div class="badge">목숨: <span id="lives">3</span></div>
+    </div>
+
+    <div class="game-shell">
+      <canvas id="game" width="640" height="640"></canvas>
+
+      <div class="overlay" id="overlay">
+        <div class="overlay-inner">
+          <div class="overlay-title" id="overlayTitle">게임 종료</div>
+          <div class="overlay-sub" id="overlaySub"></div>
+          <button id="overlayRestart">확인</button>
+        </div>
+      </div>
+
+      <div class="start-layer" id="startLayer">
+        <div class="start-inner">
+          <input id="nicknameInput" maxlength="12" placeholder="닉네임 입력" />
+          <button id="startButton">게임 시작</button>
+          <button id="localRankButton">로컬 등수</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="joystick" id="joystickArea">
+      <div class="stick-base">
+        <div class="stick-handle" id="stickHandle"></div>
+      </div>
+    </div>
+
+    <div class="item-legend">
+      <div class="legend-item">
+        <span class="legend-icon">⚡</span>
+        <span class="legend-text">속도 버프: 30초 동안 게임 속도 +10%</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-icon">❤</span>
+        <span class="legend-text">목숨 +1: 현재 남은 목숨이 1 증가</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-icon">!</span>
+        <span class="legend-text">위험: 1적(빨간 원형 적) 1마리가 추가 등장</span>
+      </div>
+    </div>
+
+    <div class="hint">
+      <p>
+        <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> 또는 <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> 로 이동하고,<br />
+        화면의 90%를 채우면 다음 스테이지로 진행해.<br />
+        스테이지 1~3을 모두 클리어하면 진짜 보상(?)이 기다리고 있어.
+      </p>
+    </div>
+
+    <button id="restartBtn">처음부터 다시</button>
+  </div>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+
+      const CONFIG = {
+        COLS: 80,
+        ROWS: 80,
+        MIN_SPEED: 4,
+        MAX_SPEED: 5,
+        SPEED_TYPE2: 2,
+        TARGET_PERCENT: 90,
+        MAX_LIVES: 3,
+        BUFF_DURATION: 30000,
+        SPEED_BUFF_FACTOR: 1.1,
+        MOVE_INTERVAL: 16,
+        PLAYER_SPEED: 0.8
+      };
+
+      const STAGE_INFO = {
+        1: {
+          couponTitle: "스타벅스 카라멜마키아또 [Tall]",
+          couponDesc: "모바일 기프티콘 – 카라멜마키아또 Tall 1잔",
+          clearSuffix: "(스타벅스 아메리카노 1잔 기프티콘)"
+        },
+        2: {
+          couponTitle: "스타벅스 아메리카노 + 디저트 세트",
+          couponDesc: "아메리카노 1잔 + 디저트 1종 세트",
+          clearSuffix: "(스타벅스 아메리카노 + 디저트 세트 기프티콘)"
+        },
+        3: {
+          couponTitle: "제작자 밥 사주는 쿠폰",
+          couponDesc: "제작자가 직접 사주는 식사 한 끼",
+          clearSuffix: null
+        }
+      };
+
+      // 스테이지별 적/아이템 설정
+      const STAGE_CONFIG = {
+        1: { enemies: { type1: 2, type2: 0 }, itemCount: 2 },
+        2: { enemies: { type1: 3, type2: 1 }, itemCount: 2 },
+        3: { enemies: { type1: 4, type2: 2 }, itemCount: 2 }
+      };
+
+      const cellSize = canvas.width / CONFIG.COLS;
+
+      // DOM
+      const stageEl = document.getElementById("stage");
+      const scoreEl = document.getElementById("score");
+      const fillEl = document.getElementById("fill");
+      const targetEl = document.getElementById("target");
+      const livesEl = document.getElementById("lives");
+      const restartBtn = document.getElementById("restartBtn");
+      const overlay = document.getElementById("overlay");
+      const overlayTitle = document.getElementById("overlayTitle");
+      const overlaySub = document.getElementById("overlaySub");
+      const overlayRestart = document.getElementById("overlayRestart");
+      const startLayer = document.getElementById("startLayer");
+      const startButton = document.getElementById("startButton");
+      const localRankButton = document.getElementById("localRankButton");
+      const nicknameInput = document.getElementById("nicknameInput");
+      const joystickArea = document.getElementById("joystickArea");
+      const joystickHandle = document.getElementById("stickHandle");
+
+      targetEl.textContent = CONFIG.TARGET_PERCENT;
+
+      // 쿠폰 배경 프리렌더
+      let couponCanvas = null;
+      let couponCtx = null;
+      let lastCouponStage = null;
+
+      // 게임 상태
+      let board;
+      let player;
+      let enemies = [];
+      let items = [];
+      let lastTime = 0;
+      let moveTimer = 0;
+      let lastHasInput = false;
+      let playerMoveAccum = 0;
+
+      let score = 0;
+      let lives = CONFIG.MAX_LIVES;
+      let stage = 1;
+      let running = false;
+      let pendingAction = null;
+      let speedBuffRemaining = 0;
+
+      const keys = { left: false, right: false, up: false, down: false };
+
+      // ===== 입력 처리 =====
+      function setDirFlag(dir, pressed) {
+        keys[dir] = pressed;
+      }
+
+      function getInputDir() {
+        let dx = 0, dy = 0;
+        if (keys.left && !keys.right) dx = -1;
+        else if (keys.right && !keys.left) dx = 1;
+        if (keys.up && !keys.down) dy = -1;
+        else if (keys.down && !keys.up) dy = 1;
+        return { x: dx, y: dy };
+      }
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === " " && !running && startLayer.style.display !== "none") {
+          e.preventDefault();
+          beginPlayIfReady();
+          return;
+        }
+        if (e.key === "ArrowLeft" || e.key === "a") { e.preventDefault(); setDirFlag("left", true); }
+        if (e.key === "ArrowRight" || e.key === "d") { e.preventDefault(); setDirFlag("right", true); }
+        if (e.key === "ArrowUp" || e.key === "w") { e.preventDefault(); setDirFlag("up", true); }
+        if (e.key === "ArrowDown" || e.key === "s") { e.preventDefault(); setDirFlag("down", true); }
+      });
+
+      document.addEventListener("keyup", function (e) {
+        if (e.key === "ArrowLeft" || e.key === "a") { e.preventDefault(); setDirFlag("left", false); }
+        if (e.key === "ArrowRight" || e.key === "d") { e.preventDefault(); setDirFlag("right", false); }
+        if (e.key === "ArrowUp" || e.key === "w") { e.preventDefault(); setDirFlag("up", false); }
+        if (e.key === "ArrowDown" || e.key === "s") { e.preventDefault(); setDirFlag("down", false); }
+      });
+
+      startButton.addEventListener("click", beginPlayIfReady);
+      restartBtn.addEventListener("click", startNewGame);
+      overlayRestart.addEventListener("click", handleOverlayConfirm);
+      localRankButton.addEventListener("click", showLocalRank);
+
+      // 모바일 조이스틱
+      function bindJoystick() {
+        if (!joystickArea || !joystickHandle) return;
+        const base = joystickArea.querySelector(".stick-base");
+        if (!base) return;
+
+        let active = false;
+
+        function resetStick() {
+          joystickHandle.style.left = "50%";
+          joystickHandle.style.top = "50%";
+          keys.up = keys.down = keys.left = keys.right = false;
+        }
+
+        function getPoint(e) {
+          if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+          return { x: e.clientX, y: e.clientY };
+        }
+
+        function updateFromPoint(clientX, clientY) {
+          const rect = base.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          let dx = clientX - centerX;
+          let dy = clientY - centerY;
+          const maxR = rect.width / 2;
+          const len = Math.hypot(dx, dy);
+
+          if (len < maxR * 0.2) {
+            resetStick();
+            return;
+          }
+
+          const clampedLen = Math.min(len, maxR * 0.9);
+          const nx = dx / (len || 1);
+          const ny = dy / (len || 1);
+          const px = centerX + nx * clampedLen;
+          const py = centerY + ny * clampedLen;
+
+          joystickHandle.style.left = ((px - rect.left) / rect.width * 100) + "%";
+          joystickHandle.style.top = ((py - rect.top) / rect.height * 100) + "%";
+
+          let angle = Math.atan2(ny, nx);
+          let deg = angle * 180 / Math.PI;
+          if (deg < 0) deg += 360;
+
+          keys.up = keys.down = keys.left = keys.right = false;
+
+          if (deg >= 337.5 || deg < 22.5) keys.right = true;
+          else if (deg < 67.5) { keys.right = true; keys.down = true; }
+          else if (deg < 112.5) keys.down = true;
+          else if (deg < 157.5) { keys.down = true; keys.left = true; }
+          else if (deg < 202.5) keys.left = true;
+          else if (deg < 247.5) { keys.left = true; keys.up = true; }
+          else if (deg < 292.5) keys.up = true;
+          else { keys.up = true; keys.right = true; }
+        }
+
+        base.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          active = true;
+          const p = getPoint(e);
+          updateFromPoint(p.x, p.y);
+        });
+        base.addEventListener("touchstart", (e) => {
+          e.preventDefault();
+          active = true;
+          const p = getPoint(e);
+          updateFromPoint(p.x, p.y);
+        }, { passive: false });
+
+        function move(e) {
+          if (!active) return;
+          e.preventDefault();
+          const p = getPoint(e);
+          updateFromPoint(p.x, p.y);
+        }
+
+        function end(e) {
+          if (!active) return;
+          e.preventDefault();
+          active = false;
+          resetStick();
+        }
+
+        window.addEventListener("mousemove", move);
+        window.addEventListener("touchmove", move, { passive: false });
+        window.addEventListener("mouseup", end);
+        window.addEventListener("touchend", end, { passive: false });
+        window.addEventListener("touchcancel", end, { passive: false });
+
+        resetStick();
+      }
+
+      // ===== 보드/플레이어 초기화 =====
+      function createEmptyBoard() {
+        const b = [];
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+          const row = [];
+          for (let x = 0; x < CONFIG.COLS; x++) {
+            if (y === 0 || y === CONFIG.ROWS - 1 || x === 0 || x === CONFIG.COLS - 1) row.push(1);
+            else row.push(0);
+          }
+          b.push(row);
+        }
+        return b;
+      }
+
+      function resetPlayer() {
+        player = { x: 1, y: 0, drawing: false, trail: [] };
+        playerMoveAccum = 0;
+        keys.left = keys.right = keys.up = keys.down = false;
+      }
+
+      function randomSpeedBetween() {
+        const { MIN_SPEED, MAX_SPEED } = CONFIG;
+        return MIN_SPEED + Math.random() * (MAX_SPEED - MIN_SPEED);
+      }
+
+      function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+
+      // ===== 적/아이템 스폰 =====
+      function spawnEnemyType(type, count) {
+        const baseR1 = cellSize * 2.2;
+        const baseR2 = baseR1 * 2.5;
+        for (let i = 0; i < count; i++) {
+          const ex = 2 + Math.floor(Math.random() * (CONFIG.COLS - 4));
+          const ey = 2 + Math.floor(Math.random() * (CONFIG.ROWS - 4));
+          const angle = Math.random() * Math.PI * 2;
+          const speed = type === 2 ? CONFIG.SPEED_TYPE2 : randomSpeedBetween();
+          enemies.push({
+            type,
+            radius: type === 2 ? baseR2 : baseR1,
+            x: ex * cellSize + cellSize / 2,
+            y: ey * cellSize + cellSize / 2,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed
+          });
+        }
+      }
+
+      function spawnEnemiesForStage(stageNum) {
+        enemies = [];
+        const cfg = STAGE_CONFIG[stageNum]?.enemies || STAGE_CONFIG[1].enemies;
+        if (cfg.type1) spawnEnemyType(1, cfg.type1);
+        if (cfg.type2) spawnEnemyType(2, cfg.type2);
+      }
+
+      function placeRandomItem(type) {
+        for (let tries = 0; tries < 100; tries++) {
+          const rx = 2 + Math.floor(Math.random() * (CONFIG.COLS - 4));
+          const ry = 2 + Math.floor(Math.random() * (CONFIG.ROWS - 4));
+          if (board[ry][rx] !== 0) continue;
+          if (items.some(it => it.x === rx && it.y === ry)) continue;
+          items.push({ x: rx, y: ry, type });
+          break;
+        }
+      }
+
+      function spawnItemsForStage(stageNum) {
+        items = [];
+        const types = ["speed", "life", "enemy"];
+        shuffleArray(types);
+        const count = STAGE_CONFIG[stageNum]?.itemCount ?? 2;
+        for (let i = 0; i < count; i++) placeRandomItem(types[i]);
+      }
+
+      function spawnExtraEnemy() {
+        const baseR1 = cellSize * 2.2;
+        for (let tries = 0; tries < 100; tries++) {
+          const ex = 2 + Math.floor(Math.random() * (CONFIG.COLS - 4));
+          const ey = 2 + Math.floor(Math.random() * (CONFIG.ROWS - 4));
+          if (board[ey][ex] === 1) continue;
+          const speed = randomSpeedBetween();
+          const angle = Math.random() * Math.PI * 2;
+          enemies.push({
+            type: 1,
+            radius: baseR1,
+            x: ex * cellSize + cellSize / 2,
+            y: ey * cellSize + cellSize / 2,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed
+          });
+          break;
+        }
+      }
+
+      // ===== 아이템 효과 / 그리기 매핑 =====
+      const ITEM_EFFECTS = {
+        speed() { speedBuffRemaining = CONFIG.BUFF_DURATION; },
+        life() {
+          lives = Math.min(CONFIG.MAX_LIVES, lives + 1);
+          updateHUD(getFillPercent());
+        },
+        enemy() { spawnExtraEnemy(); }
+      };
+
+      const ITEM_DRAWERS = {
+        speed(cx, cy, r) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.beginPath();
+          ctx.moveTo(-r * 0.2, -r * 0.8);
+          ctx.lineTo(r * 0.1, -r * 0.1);
+          ctx.lineTo(-r * 0.1, -r * 0.1);
+          ctx.lineTo(r * 0.2, r * 0.8);
+          ctx.lineTo(-r * 0.1, r * 0.2);
+          ctx.lineTo(0, r * 0.2);
+          ctx.closePath();
+          ctx.fillStyle = "#facc15";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#fef9c3";
+          ctx.stroke();
+          ctx.restore();
+        },
+        life(cx, cy, rItem) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.beginPath();
+          const r = rItem * 0.7;
+          ctx.moveTo(0, r);
+          ctx.bezierCurveTo(-r, r * 0.4, -r, -r * 0.2, 0, -r * 0.4);
+          ctx.bezierCurveTo(r, -r * 0.2, r, r * 0.4, 0, r);
+          ctx.fillStyle = "#22c55e";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#bbf7d0";
+          ctx.stroke();
+          ctx.restore();
+        },
+        enemy(cx, cy, rItem) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.beginPath();
+          ctx.moveTo(0, -rItem * 0.8);
+          ctx.lineTo(rItem * 0.8, rItem * 0.8);
+          ctx.lineTo(-rItem * 0.8, rItem * 0.8);
+          ctx.closePath();
+          ctx.fillStyle = "#f97316";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#ffedd5";
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, -rItem * 0.2);
+          ctx.lineTo(0, rItem * 0.3);
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "#1f2937";
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(0, rItem * 0.5, rItem * 0.08, 0, Math.PI * 2);
+          ctx.fillStyle = "#1f2937";
+          ctx.fill();
+          ctx.restore();
+        }
+      };
+
+      function applyItem(type) {
+        ITEM_EFFECTS[type] && ITEM_EFFECTS[type]();
+      }
+
+      // ===== HUD / 시작/오버레이 =====
+      function updateHUD(fillPercent) {
+        stageEl.textContent = stage;
+        scoreEl.textContent = score;
+        fillEl.textContent = fillPercent.toFixed(0);
+        livesEl.textContent = lives;
+      }
+
+      function beginPlayIfReady() {
+        if (!running) {
+          running = true;
+          startLayer.style.display = "none";
+        }
+      }
+
+      function startNewGame() {
+        stage = 1;
+        stageEl.textContent = stage;
+        overlay.style.display = "none";
+        restartBtn.style.display = "none";
+        startLayer.style.display = "flex";
+        running = false;
+        pendingAction = null;
+        setupStage(stage, true);
+      }
+
+      function showOverlay(title, sub, action) {
+        overlayTitle.textContent = title;
+        overlaySub.textContent = sub || "";
+        overlay.style.display = "flex";
+        pendingAction = action || null;
+      }
+
+      function handleOverlayConfirm() {
+        overlay.style.display = "none";
+        if (pendingAction === "stage2") {
+          stage = 2;
+          setupStage(stage, false);
+          running = true;
+        } else if (pendingAction === "stage3") {
+          stage = 3;
+          setupStage(stage, false);
+          running = true;
+        } else if (pendingAction === "restart") {
+          startNewGame();
+        }
+        pendingAction = null;
+      }
+
+      function getNickname() {
+        if (!nicknameInput) return "플레이어";
+        const name = nicknameInput.value.trim();
+        return name || "플레이어";
+      }
+
+      function saveScoreIfNeeded() {
+        if (score <= 0 || !window.localStorage) return;
+        let arr;
+        try {
+          arr = JSON.parse(localStorage.getItem("qixGiftLocalScores") || "[]");
+        } catch {
+          arr = [];
+        }
+        arr.push({ name: getNickname(), score, stage, time: new Date().toISOString() });
+        arr.sort((a, b) => b.score - a.score);
+        if (arr.length > 30) arr = arr.slice(0, 30);
+        localStorage.setItem("qixGiftLocalScores", JSON.stringify(arr));
+      }
+
+      function showLocalRank() {
+        if (!window.localStorage) {
+          alert("이 브라우저에서는 로컬 등수를 저장할 수 없어.");
+          return;
+        }
+        let arr;
+        try {
+          arr = JSON.parse(localStorage.getItem("qixGiftLocalScores") || "[]");
+        } catch {
+          arr = [];
+        }
+        if (!arr.length) {
+          alert("아직 저장된 기록이 없어.");
+          return;
+        }
+        const lines = arr.slice(0, 10).map((entry, idx) => {
+          const dateStr = entry.time ? entry.time.slice(0, 10) : "";
+          return (
+            (idx + 1) + "위 - " +
+            (entry.name || "플레이어") + " : " +
+            entry.score + "점 (최종 스테이지 " +
+            entry.stage + ", " + dateStr + ")"
+          );
+        });
+        alert(lines.join("\n"));
+      }
+
+      // ===== 충돌 / 이동 =====
+      function blockedPixel(px, py, radius) {
+        const steps = 18;
+        for (let i = 0; i < steps; i++) {
+          const ang = (Math.PI * 2 * i) / steps;
+          const sx = px + Math.cos(ang) * radius;
+          const sy = py + Math.sin(ang) * radius;
+          const cx = Math.floor(sx / cellSize);
+          const cy = Math.floor(sy / cellSize);
+          if (cx < 0 || cx >= CONFIG.COLS || cy < 0 || cy >= CONFIG.ROWS) return true;
+          if (board[cy][cx] === 1) return true;
+        }
+        return false;
+      }
+
+      function randomBounceTowardPlayer(enemy) {
+        const px = (player.x + 0.5) * cellSize;
+        const py = (player.y + 0.5) * cellSize;
+        let dx = px - enemy.x;
+        let dy = py - enemy.y;
+        let len = Math.hypot(dx, dy);
+        if (!len) { dx = 1; dy = 0; len = 1; }
+        dx /= len; dy /= len;
+        const baseAngle = Math.atan2(dy, dx);
+        const maxAngle = Math.PI / 3;
+        const offset = (Math.random() * 2 - 1) * maxAngle;
+        const angle = baseAngle + offset;
+        const speed = (enemy.type === 2) ? CONFIG.SPEED_TYPE2 : randomSpeedBetween();
+        return { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed };
+      }
+
+      function clearTrail() {
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+          for (let x = 0; x < CONFIG.COLS; x++) {
+            if (board[y][x] === 2) board[y][x] = 0;
+          }
+        }
+      }
+
+      // 🔧 적 리셋 금지: 죽은 적은 부활하지 않음
+      function loseLife() {
+        clearTrail();
+        player.drawing = false;
+        player.trail = [];
+        lives -= 1;
+
+        if (lives <= 0) {
+          lives = 0;
+          running = false;
+          updateHUD(getFillPercent());
+          saveScoreIfNeeded();
+          restartBtn.style.display = "inline-block";
+          showOverlay("게임 오버", "적이나 선에 닿았어… 다시 한 판?", "restart");
+        } else {
+          // 플레이어만 리셋, 적(enemies)은 그대로 유지
+          resetPlayer();
+          updateHUD(getFillPercent());
+        }
+      }
+
+      function stepPlayer() {
+        const dir = getInputDir();
+        const dx = dir.x, dy = dir.y;
+        if (dx === 0 && dy === 0) return;
+
+        playerMoveAccum += CONFIG.PLAYER_SPEED;
+        if (playerMoveAccum < 1) return;
+        playerMoveAccum -= 1;
+
+        const nx = player.x + dx;
+        const ny = player.y + dy;
+        if (nx < 0 || nx >= CONFIG.COLS || ny < 0 || ny >= CONFIG.ROWS) return;
+
+        const nextCell = board[ny][nx];
+
+        if (!player.drawing) {
+          if (nextCell === 1) {
+            player.x = nx; player.y = ny;
+          } else if (nextCell === 0) {
+            player.drawing = true;
+            player.x = nx; player.y = ny;
+            player.trail = [{ x: nx, y: ny }];
+            board[ny][nx] = 2;
+          }
+        } else {
+          if (nextCell === 0) {
+            player.x = nx; player.y = ny;
+            player.trail.push({ x: nx, y: ny });
+            board[ny][nx] = 2;
+          } else if (nextCell === 1) {
+            player.x = nx; player.y = ny;
+            completeTrailAndFill();
+          } else if (nextCell === 2) {
+            loseLife();
+          }
+        }
+      }
+
+      function stepEnemies() {
+        for (const enemy of enemies) {
+          let nx = enemy.x + enemy.vx;
+          let ny = enemy.y + enemy.vy;
+
+          if (blockedPixel(nx, ny, enemy.radius)) {
+            let tries = 0;
+            let bounced = false;
+            while (tries < 8) {
+              const nd = randomBounceTowardPlayer(enemy);
+              enemy.vx = nd.vx; enemy.vy = nd.vy;
+              nx = enemy.x + enemy.vx;
+              ny = enemy.y + enemy.vy;
+              if (!blockedPixel(nx, ny, enemy.radius)) {
+                bounced = true;
+                break;
+              }
+              tries++;
+            }
+            if (!bounced) {
+              enemy.vx = -enemy.vx;
+              enemy.vy = -enemy.vy;
+              nx = enemy.x + enemy.vx;
+              ny = enemy.y + enemy.vy;
+            }
+          }
+
+          enemy.x = nx; enemy.y = ny;
+
+          // 화면 경계
+          if (enemy.x < cellSize) enemy.x = cellSize;
+          if (enemy.x > canvas.width - cellSize) enemy.x = canvas.width - cellSize;
+          if (enemy.y < cellSize) enemy.y = cellSize;
+          if (enemy.y > canvas.height - cellSize) enemy.y = canvas.height - cellSize;
+
+          // 먹은 땅 안에 끼는 것 방지
+          if (blockedPixel(enemy.x, enemy.y, enemy.radius)) {
+            for (let t = 0; t < 40; t++) {
+              const ex = 2 + Math.floor(Math.random() * (CONFIG.COLS - 4));
+              const ey = 2 + Math.floor(Math.random() * (CONFIG.ROWS - 4));
+              const rx = ex * cellSize + cellSize / 2;
+              const ry = ey * cellSize + cellSize / 2;
+              if (!blockedPixel(rx, ry, enemy.radius)) {
+                enemy.x = rx; enemy.y = ry;
+                break;
+              }
+            }
+          }
+        }
+
+        // 적끼리 서로 밀쳐내기
+        for (let i = 0; i < enemies.length; i++) {
+          for (let j = i + 1; j < enemies.length; j++) {
+            const a = enemies[i], b = enemies[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.hypot(dx, dy);
+            const minDist = (a.radius + b.radius) * 0.9;
+            if (dist > 0 && dist < minDist) {
+              const tvx = a.vx, tvy = a.vy;
+              a.vx = b.vx; a.vy = b.vy;
+              b.vx = tvx; b.vy = tvy;
+
+              const overlap = (minDist - dist) / 2;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              a.x -= nx * overlap;
+              a.y -= ny * overlap;
+              b.x += nx * overlap;
+              b.y += ny * overlap;
+            }
+          }
+        }
+      }
+
+      function checkCollisions() {
+        const playerRadius = cellSize * 0.9;
+        const pcx = (player.x + 0.5) * cellSize;
+        const pcy = (player.y + 0.5) * cellSize;
+
+        // 플레이어가 현재 서 있는 칸이 벽/채운 땅(1)인지 여부
+        const onLand = board[player.y]?.[player.x] === 1;
+
+        for (const enemy of enemies) {
+          // 1) 플레이어 직접 충돌: 바다(0)나 선(2)에 있을 때만 체크
+          if (!onLand) {
+            const dx = enemy.x - pcx;
+            const dy = enemy.y - pcy;
+            const dist = Math.hypot(dx, dy);
+            if (dist < enemy.radius + playerRadius * 0.8) {
+              loseLife();
+              return;
+            }
+          }
+
+          // 2) 선(2)와의 충돌은 항상 체크
+          const steps = 24;
+          for (let i = 0; i < steps; i++) {
+            const ang = (Math.PI * 2 * i) / steps;
+            const sx = enemy.x + Math.cos(ang) * enemy.radius;
+            const sy = enemy.y + Math.sin(ang) * enemy.radius;
+            const cx = Math.floor(sx / cellSize);
+            const cy = Math.floor(sy / cellSize);
+            if (cx < 0 || cx >= CONFIG.COLS || cy < 0 || cy >= CONFIG.ROWS) continue;
+            if (board[cy][cx] === 2) {
+              loseLife();
+              return;
+            }
+          }
+        }
+      }
+
+      // ===== 영역 채우기 =====
+      function getFillPercent() {
+        let filled = 0;
+        let total = 0;
+        for (let y = 1; y < CONFIG.ROWS - 1; y++) {
+          for (let x = 1; x < CONFIG.COLS - 1; x++) {
+            total++;
+            if (board[y][x] === 1) filled++;
+          }
+        }
+        if (total === 0) return 0;
+        return (filled / total) * 100;
+      }
+
+      // 🔑 핵심: 적 분포에 따라 어느 영역을 채울지 결정
+      function completeTrailAndFill() {
+        // 1) 선(2)을 땅(1)으로 변경
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+          for (let x = 0; x < CONFIG.COLS; x++) {
+            if (board[y][x] === 2) board[y][x] = 1;
+          }
+        }
+        player.drawing = false;
+        player.trail = [];
+
+        // 2) 바다(0) 영역 컴포넌트 찾기
+        const compIndex = [];
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+          compIndex.push(new Array(CONFIG.COLS).fill(-1));
+        }
+        const compSizes = [];
+        let compCount = 0;
+        const dirs = [
+          { x: 1, y: 0 }, { x: -1, y: 0 },
+          { x: 0, y: 1 }, { x: 0, y: -1 }
+        ];
+
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+          for (let x = 0; x < CONFIG.COLS; x++) {
+            if (board[y][x] !== 0 || compIndex[y][x] !== -1) continue;
+            const q = [{ x, y }];
+            compIndex[y][x] = compCount;
+            let size = 0;
+            while (q.length) {
+              const cur = q.shift();
+              size++;
+              for (const d of dirs) {
+                const nx = cur.x + d.x;
+                const ny = cur.y + d.y;
+                if (nx < 0 || nx >= CONFIG.COLS || ny < 0 || ny >= CONFIG.ROWS) continue;
+                if (board[ny][nx] !== 0) continue;
+                if (compIndex[ny][nx] !== -1) continue;
+                compIndex[ny][nx] = compCount;
+                q.push({ x: nx, y: ny });
+              }
+            }
+            compSizes.push(size);
+            compCount++;
+          }
+        }
+
+        let newlyClaimed = 0;
+
+        if (compCount > 0) {
+          // 3) 각 컴포넌트마다 적이 몇 마리 들어있는지 계산
+          const compEnemies = new Array(compCount).fill(0);
+          const enemyCompIds = new Array(enemies.length).fill(-1);
+
+          for (let ei = 0; ei < enemies.length; ei++) {
+            const enemy = enemies[ei];
+            const cx = Math.floor(enemy.x / cellSize);
+            const cy = Math.floor(enemy.y / cellSize);
+            if (cx < 0 || cx >= CONFIG.COLS || cy < 0 || cy >= CONFIG.ROWS) continue;
+            const cid = compIndex[cy][cx];
+            if (cid !== -1) {
+              enemyCompIds[ei] = cid;
+              compEnemies[cid]++;
+            }
+          }
+
+          let compsWithEnemies = 0;
+          for (let i = 0; i < compCount; i++) {
+            if (compEnemies[i] > 0) compsWithEnemies++;
+          }
+
+          const fillFlags = new Array(compCount).fill(false);
+
+          if (compsWithEnemies === 0) {
+            // 적이 바다에 하나도 없는 경우 → 기존처럼 가장 큰 바다만 남기고 나머지는 땅으로
+            let seaId = 0;
+            let maxSize = compSizes[0];
+            for (let i = 1; i < compCount; i++) {
+              if (compSizes[i] > maxSize) {
+                maxSize = compSizes[i];
+                seaId = i;
+              }
+            }
+            for (let i = 0; i < compCount; i++) {
+              if (i !== seaId) fillFlags[i] = true;
+            }
+          } else if (compsWithEnemies === 1) {
+            // 🔹 공이 한 곳에 모두 몰린 경우:
+            // → 그 컴포넌트는 바다로 유지, 나머지(적 없는 쪽)는 모두 땅으로
+            let enemySeaId = -1;
+            for (let i = 0; i < compCount; i++) {
+              if (compEnemies[i] > 0) {
+                enemySeaId = i;
+                break;
+              }
+            }
+            for (let i = 0; i < compCount; i++) {
+              if (i !== enemySeaId) fillFlags[i] = true;
+            }
+          } else {
+            // 🔹 공이 여러 컴포넌트로 나뉜 경우:
+            // 1) 적이 들어 있는 컴포넌트 중 가장 작은 영역 하나를 선택해서 채움
+            // 2) 적이 전혀 없는 컴포넌트는 전부 채움
+            let fillEnemyCompId = -1;
+            let minSize = Infinity;
+            for (let i = 0; i < compCount; i++) {
+              if (compEnemies[i] > 0 && compSizes[i] < minSize) {
+                minSize = compSizes[i];
+                fillEnemyCompId = i;
+              }
+            }
+
+            // 적이 없는 바다 영역은 항상 땅으로
+            for (let i = 0; i < compCount; i++) {
+              if (compEnemies[i] === 0) {
+                fillFlags[i] = true;
+              }
+            }
+            // 적이 있는 영역 중 가장 작은 것 하나도 땅으로
+            if (fillEnemyCompId !== -1) {
+              fillFlags[fillEnemyCompId] = true;
+            }
+          }
+
+          // 4) fillFlags가 true인 컴포넌트만 실제로 땅(1)으로 채움
+          for (let y = 0; y < CONFIG.ROWS; y++) {
+            for (let x = 0; x < CONFIG.COLS; x++) {
+              if (board[y][x] === 0) {
+                const cid = compIndex[y][x];
+                if (cid !== -1 && fillFlags[cid]) {
+                  board[y][x] = 1;
+                  newlyClaimed++;
+                }
+              }
+            }
+          }
+
+          // 5) 채워진 영역 안에 있던 적 제거 + 점수
+          const survivors = [];
+          for (let ei = 0; ei < enemies.length; ei++) {
+            const cid = enemyCompIds[ei];
+            if (cid !== -1 && fillFlags[cid]) {
+              // 채운 영역 안에 갇힌 적 → 소멸 & 보너스 점수
+              score += 100;
+            } else {
+              survivors.push(enemies[ei]);
+            }
+          }
+          enemies = survivors;
+        }
+
+        // 6) 아이템 처리 (채워진 땅 위에 있는 아이템 발동)
+        if (items.length > 0) {
+          const remains = [];
+          for (const it of items) {
+            if (board[it.y][it.x] === 1) {
+              applyItem(it.type);
+            } else {
+              remains.push(it);
+            }
+          }
+          items = remains;
+        }
+
+        if (newlyClaimed > 0) {
+          score += newlyClaimed * 10;
+        }
+
+        const fillPercent = getFillPercent();
+        updateHUD(fillPercent);
+
+        const commonMsg = "이미 사용된 기프티콘입니다 ^^";
+
+        if (fillPercent >= CONFIG.TARGET_PERCENT) {
+          running = false;
+          restartBtn.style.display = "inline-block";
+
+          if (stage === 1 || stage === 2) {
+            const info = STAGE_INFO[stage];
+            showOverlay(
+              `스테이지 ${stage} 클리어!`,
+              commonMsg + "\n" + (info.clearSuffix || ""),
+              stage === 1 ? "stage2" : "stage3"
+            );
+          } else {
+            saveScoreIfNeeded();
+            showOverlay(
+              "스테이지 3 클리어!",
+              "마지막 보상: 제작자가 밥 사줍니다.\n(이건 진짜야, 장난 아님)",
+              "restart"
+            );
+          }
+        }
+      }
+
+      // ===== 쿠폰 배경 =====
+      function drawCouponBackground() {
+        const w = canvas.width;
+        const h = canvas.height;
+        if (!couponCanvas || couponCanvas.width !== w || couponCanvas.height !== h || lastCouponStage !== stage) {
+          couponCanvas = document.createElement("canvas");
+          couponCanvas.width = w;
+          couponCanvas.height = h;
+          couponCtx = couponCanvas.getContext("2d");
+          lastCouponStage = stage;
+
+          const c = couponCtx;
+          c.clearRect(0, 0, w, h);
+          c.fillStyle = "#020617";
+          c.fillRect(0, 0, w, h);
+
+          const margin = w * 0.08;
+          const rx = margin;
+          const ry = margin;
+          const rw = w - margin * 2;
+          const rh = h - margin * 2;
+
+          function roundRectPath(ctx, x, y, w2, h2, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w2 - r, y);
+            ctx.quadraticCurveTo(x + w2, y, x + w2, y + r);
+            ctx.lineTo(x + w2, y + h2 - r);
+            ctx.quadraticCurveTo(x + w2, y + h2, x + w2 - r, y + h2);
+            ctx.lineTo(x + r, y + h2);
+            ctx.quadraticCurveTo(x, y + h2, x, y + h2 - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+          }
+
+          // 쿠폰 카드
+          roundRectPath(c, rx, ry, rw, rh, 24);
+          c.fillStyle = "#f9fafb";
+          c.fill();
+          c.lineWidth = 2;
+          c.strokeStyle = "#e5e7eb";
+          c.stroke();
+
+          // 상단 바
+          c.fillStyle = "#111827";
+          c.fillRect(rx, ry, rw, rh * 0.16);
+
+          const info = STAGE_INFO[stage] || STAGE_INFO[1];
+          c.fillStyle = "#f9fafb";
+          c.font = "bold 20px system-ui, sans-serif";
+          c.textBaseline = "middle";
+          c.fillText(info.couponTitle, rx + 20, ry + rh * 0.08);
+
+          c.fillStyle = "#111827";
+          c.font = "16px system-ui, sans-serif";
+          c.fillText(info.couponDesc, rx + 20, ry + rh * 0.4);
+
+          // 바코드 느낌만 살짝
+          const bcH = rh * 0.22;
+          const bcY = ry + rh - bcH - 24;
+          const bcX = rx + 24;
+          const bcW = rw - 48;
+
+          roundRectPath(c, bcX, bcY, bcW, bcH, 12);
+          c.fillStyle = "#e5e7eb";
+          c.fill();
+          c.strokeStyle = "#d1d5db";
+          c.stroke();
+
+          const cols = 24;
+          const colW = bcW / cols;
+          for (let i = 0; i < cols; i++) {
+            const hRatio = 0.4 + Math.random() * 0.5;
+            const x = bcX + i * colW;
+            const y = bcY + bcH * (1 - hRatio) * 0.8;
+            const h2 = bcH * hRatio;
+            c.fillStyle = Math.random() < 0.5 ? "#9ca3af" : "#6b7280";
+            c.fillRect(x + colW * 0.2, y, colW * 0.6, h2);
+          }
+
+          // 사용완료 스탬프
+          c.save();
+          c.translate(rx + rw * 0.7, ry + rh * 0.35);
+          c.rotate(-Math.PI / 7);
+          roundRectPath(c, -90, -26, 180, 52, 10);
+          c.fillStyle = "rgba(248,113,113,0.18)";
+          c.fill();
+          c.strokeStyle = "#b91c1c";
+          c.lineWidth = 3;
+          c.stroke();
+          c.fillStyle = "#b91c1c";
+          c.font = "bold 20px system-ui, sans-serif";
+          c.textAlign = "center";
+          c.textBaseline = "middle";
+          c.fillText("사용완료", 0, 0);
+          c.restore();
+        }
+
+        ctx.drawImage(couponCanvas, 0, 0);
+      }
+
+      // ===== 렌더링 =====
+      function drawBoard() {
+        for (let y = 0; y < CONFIG.ROWS; y++) {
+          for (let x = 0; x < CONFIG.COLS; x++) {
+            const v = board[y][x];
+            if (v === 0) ctx.fillStyle = "#ffffff";
+            else if (v === 1) ctx.fillStyle = "rgba(16,185,129,0.18)";
+            else if (v === 2) ctx.fillStyle = "#facc15";
+            else continue;
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+          }
+        }
+
+        // 격자
+        ctx.strokeStyle = "rgba(31,41,55,0.7)";
+        ctx.lineWidth = 0.5;
+        for (let y = 0; y <= CONFIG.ROWS; y++) {
+          const py = y * cellSize + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(0, py);
+          ctx.lineTo(canvas.width, py);
+          ctx.stroke();
+        }
+        for (let x = 0; x <= CONFIG.COLS; x++) {
+          const px = x * cellSize + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(px, 0);
+          ctx.lineTo(px, canvas.height);
+          ctx.stroke();
+        }
+      }
+
+      function drawItems() {
+        const rItem = cellSize * 0.7;
+        for (const it of items) {
+          const cx = it.x * cellSize + cellSize / 2;
+          const cy = it.y * cellSize + cellSize / 2;
+          const drawFn = ITEM_DRAWERS[it.type];
+          if (drawFn) drawFn(cx, cy, rItem);
+        }
+      }
+
+      function drawEnemies() {
+        for (const enemy of enemies) {
+          const r = enemy.radius;
+          if (enemy.type === 2) {
+            const sides = 11;
+            const step = (Math.PI * 2) / sides;
+            const startAngle = -Math.PI / 2;
+            ctx.beginPath();
+            for (let i = 0; i < sides; i++) {
+              const ang = startAngle + step * i;
+              const ex = enemy.x + Math.cos(ang) * r;
+              const ey = enemy.y + Math.sin(ang) * r;
+              if (i === 0) ctx.moveTo(ex, ey);
+              else ctx.lineTo(ex, ey);
+            }
+            ctx.closePath();
+            ctx.fillStyle = "#fb7185";
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "#fecaca";
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.arc(enemy.x, enemy.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = "#ef4444";
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "#fee2e2";
+            ctx.stroke();
+          }
+        }
+      }
+
+      function drawPlayer() {
+        const px = player.x * cellSize + cellSize / 2;
+        const py = player.y * cellSize + cellSize / 2;
+        const pr = cellSize * 0.35;
+        ctx.beginPath();
+        ctx.arc(px, py, pr, 0, Math.PI * 2);
+        ctx.fillStyle = "#e5e7eb";
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#38bdf8";
+        ctx.stroke();
+      }
+
+      function draw() {
+        drawCouponBackground();
+        drawBoard();
+        drawItems();
+        drawEnemies();
+        drawPlayer();
+      }
+
+      // ===== 메인 업데이트 / 루프 =====
+      function update(dt) {
+        if (!running) return;
+
+        if (speedBuffRemaining > 0) {
+          speedBuffRemaining = Math.max(0, speedBuffRemaining - dt);
+        }
+        const speedFactor = speedBuffRemaining > 0 ? CONFIG.SPEED_BUFF_FACTOR : 1.0;
+
+        const dirNow = getInputDir();
+        const hasInput = dirNow.x !== 0 || dirNow.y !== 0;
+        if (hasInput && !lastHasInput) {
+          moveTimer += CONFIG.MOVE_INTERVAL;
+        }
+        lastHasInput = hasInput;
+
+        moveTimer += dt * speedFactor;
+        const steps = Math.floor(moveTimer / CONFIG.MOVE_INTERVAL);
+        if (steps <= 0) return;
+        moveTimer -= steps * CONFIG.MOVE_INTERVAL;
+
+        for (let i = 0; i < steps; i++) {
+          stepPlayer();
+          stepEnemies();
+          checkCollisions();
+        }
+      }
+
+      function loop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const dt = timestamp - lastTime;
+        lastTime = timestamp;
+        update(dt);
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      // ===== 스테이지 셋업 =====
+      function setupStage(stageNum, resetScoreAndLives) {
+        if (resetScoreAndLives) {
+          score = 0;
+          lives = CONFIG.MAX_LIVES;
+          speedBuffRemaining = 0;
+        }
+        board = createEmptyBoard();
+        resetPlayer();
+        spawnEnemiesForStage(stageNum);
+        spawnItemsForStage(stageNum);
+        updateHUD(getFillPercent());
+      }
+
+      // 초기 실행
+      bindJoystick();
+      startNewGame();
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
