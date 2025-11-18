@@ -24,11 +24,6 @@
   .pad{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap}
   .pad .btn{min-width:90px}
   .hud{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
-  .download-link{
-    display:inline-block;margin-top:10px;padding:7px 13px;border-radius:999px;
-    background:#22c55e;color:#022c22;font-weight:600;text-decoration:none;
-    border:1px solid #15803d;
-  }
 </style>
 </head>
 <body>
@@ -58,9 +53,6 @@
     <div style="color:#9aa3c7;font-size:14px;margin-top:6px">
       ← → 이동, <b>Space</b> 발사, <b>P</b> 일시정지, <b>B</b> 궁극기. 터치/버튼 지원.
     </div>
-    <a href="galaga_wave_fx.html" download="galaga_wave_fx.html" class="download-link">
-      이 코드 다운로드
-    </a>
   </div>
 </div>
 <script>
@@ -166,6 +158,11 @@
   let supportItem = null;         // 화면에 떠 있는 아이템
   let waveTime = 0;               // 웨이브 경과 시간
   let itemSpawnedThisWave = false;// 한 웨이브에 아이템 1번만
+  let powerItems = [];            // 떨어지는 파워업 아이템들
+  let ultItems = [];              // 떨어지는 궁극기 아이템들
+  let shieldItems = [];           // 떨어지는 실드 아이템들
+  let shieldCharges = 0;          // 보유 실드 개수
+  let shieldActive = false;       // 실드 활성 상태
 
   // 보스 상태
   let boss = null;
@@ -258,7 +255,7 @@
       S.score=0;
       S.wave=1;
       S.lives=3;
-      S.ultCharges=0;
+      S.ultCharges=1; // 시작 시 궁극기 1개
     }
     S.over=false;
     S.running=true;
@@ -266,6 +263,11 @@
 
     helper = null;
     supportItem = null;
+    powerItems = [];
+    ultItems = [];
+    shieldItems = [];
+    shieldCharges = 0;
+    shieldActive = false;
     waveTime = 0;
     itemSpawnedThisWave = false;
     boss = null;
@@ -310,17 +312,22 @@
   // ===== Input =====
   window.addEventListener('keydown',e=>{
     const k=e.key;
-    if(['ArrowLeft','ArrowRight',' ','p','P','b','B'].includes(k)) e.preventDefault();
-    if(k==='ArrowLeft') S.keys.add('left');
-    if(k==='ArrowRight') S.keys.add('right');
+    if(['ArrowLeft','ArrowRight',' ','p','P','r','R','a','A','d','D','s','S','b','B'].includes(k)) e.preventDefault();
+    if(k==='ArrowLeft' || k==='a' || k==='A') S.keys.add('left');
+    if(k==='ArrowRight' || k==='d' || k==='D') S.keys.add('right');
     if(k===' ') S.keys.add('fire');
     if(k==='p'||k==='P') togglePause();
-    if(k==='b'||k==='B') activateUltimate();
+    // 궁극기: B / b (원하시면 R도 같이 둘 수 있음)
+    if(k==='b' || k==='B' || k==='r' || k==='R') activateUltimate();
+    if((k==='s'||k==='S') && shieldCharges > 0){
+      // 실드 토글: 보유 중일 때만
+      shieldActive = !shieldActive;
+    }
   });
   window.addEventListener('keyup',e=>{
     const k=e.key;
-    if(k==='ArrowLeft') S.keys.delete('left');
-    if(k==='ArrowRight') S.keys.delete('right');
+    if(k==='ArrowLeft' || k==='a' || k==='A') S.keys.delete('left');
+    if(k==='ArrowRight' || k==='d' || k==='D') S.keys.delete('right');
     if(k===' ') S.keys.delete('fire');
   });
   btLeft.addEventListener('pointerdown',()=>{ S.leftHold=true; });
@@ -357,24 +364,22 @@
   // ===== PowerUp 체크 =====
   function checkPowerUp(oldScore, newScore, x, y){
     if(!player) return;
-    // 1 → 2 단계
+    // 1 → 2 단계: 아이템 드랍
     if(oldScore < 2000 && newScore >= 2000 && player.powerLevel < 2){
-      player.powerLevel = 2;
-      scorePops.push({
+      powerItems.push({
         x, y,
-        text: 'POWER UP II',
-        t: 0,
-        dur: 1.2
+        r: 10,
+        vy: 126,
+        toLevel: 2
       });
     }
-    // 2 → 3 단계
+    // 2 → 3 단계: 아이템 드랍
     if(oldScore < 6000 && newScore >= 6000 && player.powerLevel < 3){
-      player.powerLevel = 3;
-      scorePops.push({
+      powerItems.push({
         x, y,
-        text: 'POWER UP III',
-        t: 0,
-        dur: 1.2
+        r: 10,
+        vy: 126,
+        toLevel: 3
       });
     }
   }
@@ -401,8 +406,8 @@
     const cx = player.x;
     const cy = player.y;
 
-    const smallCount = 40;
-    const midCount   = 24;
+    const smallCount = 80;
+    const midCount   = 48;
 
     // 작은 탄들 (dmg 1)
     for(let i=0;i<smallCount;i++){
@@ -437,7 +442,7 @@
     ultFlash = { t:0, dur:0.6 };
 
     // 지진(카메라 흔들림)
-    shakeTime = 0.5;
+    shakeTime = 0.8;
 
     // 연출용 텍스트
     scorePops.push({
@@ -520,7 +525,7 @@
       sideMode: -1, // 팔 사격 방향 (-1: 왼쪽, 1: 오른쪽)
       sideModeTime: 0
     };
-    if(S.wave === 3){
+    if(S.wave === 10){
       // 스테이지3 보스 (로봇형)
       boss = {
         ...base,
@@ -530,7 +535,7 @@
         speed: 50
       };
     } else {
-      // 스테이지4 보스
+      // 스테이지5 보스 (최종 보스 느낌)
       boss = {
         ...base,
         type: 4,
@@ -553,13 +558,14 @@
       const fromRight = boss.sideFlag === 1;
       const startX = fromRight ? (G.w + 40) : -40;
       const baseAng = Math.PI/2 + (fromRight ? Math.PI/6 : -Math.PI/6); // 아래에서 좌/우로 30도 기울어진 방향
-      const spread = Math.PI/12; // ±15도
+      const spread = Math.PI/8; // ±22.5도
       for(let i=0;i<count;i++){
+        const offsetX = (Math.random()-0.5)*40;
         const y = baseY - Math.random()*60;
         const ang = baseAng + (Math.random()-0.5)*2*spread;
         const spd = 190 + Math.random()*40;
         enemies.push({
-          x: startX,
+          x: startX + offsetX,
           y,
           baseX: 0,
           baseY: 0,
@@ -578,15 +584,15 @@
       // 다음 소환은 반대 방향
       boss.sideFlag *= -1;
     } else {
-      // 스테이지4: 양쪽에서 3마리씩 기존 대각선 패턴
+      // 스테이지5: 양쪽에서 3마리씩 기존 대각선 패턴
       const rows = 3;
       const gapY = 32;
       const baseY = -40;
       for(let i=0;i<rows;i++){
-        const y = baseY - i*gapY;
+        const y = baseY - i*gapY - Math.random()*20;
         // 왼쪽 → 오른쪽 아래 대각선
         enemies.push({
-          x: -50 - i*10,
+          x: -50 - i*10 - Math.random()*20,
           y,
           baseX: 0,
           baseY: 0,
@@ -603,7 +609,7 @@
         });
         // 오른쪽 → 왼쪽 아래 대각선
         enemies.push({
-          x: G.w + 50 + i*10,
+          x: G.w + 50 + i*10 + Math.random()*20,
           y,
           baseX: 0,
           baseY: 0,
@@ -634,7 +640,7 @@
       boss.targetY = minY + Math.random()*(maxY - minY);
     }
     const dx = boss.targetX - boss.x;
-    const dy = boss.targetY - boss.y;
+       const dy = boss.targetY - boss.y;
     const distMove = Math.hypot(dx, dy);
     if(distMove > 1){
       const v = boss.speed * dt;
@@ -699,7 +705,7 @@
         });
       }
     } else {
-      // 스테이지4: 사방으로 랜덤 탄 흩뿌리기
+      // 스테이지5: 사방으로 랜덤 탄 흩뿌리기
       bossShotTimer -= dt;
       if(bossShotTimer <= 0){
         const volley = 18;
@@ -724,7 +730,6 @@
     // 웨이브 넘어가도 파워는 유지
     const prevPower = player ? player.powerLevel : 1;
     waveTime = 0;
-    supportItem = null;
     itemSpawnedThisWave = false;
     resetPlayer();
     player.powerLevel = prevPower; // 이전 파워 복구
@@ -735,7 +740,8 @@
     bossBullets = [];
     bossShotTimer = 0;
     bossBigTimer = 0;
-    if(S.wave === 3 || S.wave === 4){
+    // 🔥 여기서 4단계 보스를 5단계로 이동
+    if(S.wave === 5 || S.wave === 10){
       spawnBoss();
     } else {
       spawnWave(32 + Math.min(32, (S.wave-1)*4));
@@ -802,7 +808,7 @@
         supportItem = null;
       } else if(player && rectCircleCollide(
         player.x-14, player.y-10, 28, 20,
-        supportItem.x, supportItem.y, supportItem.r
+        supportItem.x, supportItem.y, supportItem.r*1.1
       )){
         // 아이템 획득 → 지원기 생김
         helper = { offsetX: 40, x: player.x + 40, y: player.y };
@@ -813,6 +819,84 @@
           text: 'ALLY ON!',
           t: 0,
           dur: 1.1
+        });
+      }
+    }
+
+    // 파워업 아이템 이동 + 먹기
+    for(let i=powerItems.length-1;i>=0;i--){
+      const it = powerItems[i];
+      it.y += it.vy * dt;
+      if(it.y > G.h + 20){
+        powerItems.splice(i,1);
+        continue;
+      }
+      if(player && rectCircleCollide(
+        player.x-14, player.y-10, 28, 20,
+        it.x, it.y, it.r*1.1
+      )){
+        powerItems.splice(i,1);
+        if(player.powerLevel < it.toLevel){
+          player.powerLevel = it.toLevel;
+        }
+        scorePops.push({
+          x: player.x,
+          y: player.y - 30,
+          text: it.toLevel === 2 ? 'POWER UP II' : 'POWER UP III',
+          t: 0,
+          dur: 1.2
+        });
+      }
+    }
+
+    // 궁극기 아이템 이동 + 먹기
+    for(let i=ultItems.length-1;i>=0;i--){
+      const it = ultItems[i];
+      it.y += it.vy * dt;
+      if(it.y > G.h + 20){
+        ultItems.splice(i,1);
+        continue;
+      }
+      if(player && rectCircleCollide(
+        player.x-14, player.y-10, 28, 20,
+        it.x, it.y, it.r*1.1
+      )){
+        ultItems.splice(i,1);
+        if(S.ultCharges < 2){
+          S.ultCharges++;
+          scorePops.push({
+            x: player.x,
+            y: player.y - 40,
+            text: 'ULT +1',
+            t: 0,
+            dur: 1.0
+          });
+          updateHUD();
+        }
+      }
+    }
+
+    // 실드 아이템 이동 + 먹기
+    for(let i=shieldItems.length-1;i>=0;i--){
+      const it = shieldItems[i];
+      it.y += it.vy * dt;
+      if(it.y > G.h + 20){
+        shieldItems.splice(i,1);
+        continue;
+      }
+      if(player && rectCircleCollide(
+        player.x-14, player.y-10, 28, 20,
+        it.x, it.y, it.r*1.1
+      )){
+        shieldItems.splice(i,1);
+        shieldCharges = 1;
+        shieldActive = true;
+        scorePops.push({
+          x: player.x,
+          y: player.y - 40,
+          text: 'SHIELD ON',
+          t: 0,
+          dur: 1.0
         });
       }
     }
@@ -853,27 +937,44 @@
                 localStorage.setItem(SAVE_KEY, String(S.best));
               }catch(err){}
             }
+            // 보스전 기본 적들: 15% 확률로 파워업 아이템 드랍
+            if(boss && e.squad && Math.random() < 0.15){
+              const targetLevel = Math.min(3, (player ? player.powerLevel + 1 : 2));
+              powerItems.push({
+                x: e.x,
+                y: e.y,
+                r: 10,
+                vy: 126,
+                toLevel: targetLevel
+              });
+            }
+            // 실드 아이템 3% 확률 드랍 (실드 없을 때만)
+            if(shieldCharges === 0 && shieldItems.length === 0 && Math.random() < 0.03){
+              shieldItems.push({
+                x: e.x,
+                y: e.y,
+                r: 10,
+                vy: 126
+              });
+            }
             // 아이템 보유 적이면 아이템 드랍 (지원기)
             if(e.hasItem && !helper && !supportItem){
               supportItem = {
                 x: e.x,
                 y: e.y,
                 r: 10,
-                vy: 60
+                vy: 108
               };
               itemSpawnedThisWave = true;
             }
-            // 궁극기 게이지 1% 확률 드랍 (즉시 획득)
-            if(Math.random() < 0.01 && S.ultCharges < 3){
-              S.ultCharges++;
-              scorePops.push({
+            // 궁극기 게이지 1% 확률 드랍 → 아이템 드랍 (최대 2개)
+            if(Math.random() < 0.01 && S.ultCharges < 2){
+              ultItems.push({
                 x: e.x,
-                y: e.y - 20,
-                text: 'ULT +1',
-                t: 0,
-                dur: 1.0
+                y: e.y,
+                r: 10,
+                vy: 126
               });
-              updateHUD();
             }
           }
           break;
@@ -933,7 +1034,21 @@
           eb.x,eb.y,eb.r
         )){
           enemyBullets.splice(i,1);
-          if(invulTime <= 0) hitPlayer();
+          if(invulTime <= 0){
+            if(shieldActive && shieldCharges > 0){
+              shieldCharges = 0;
+              shieldActive = false;
+              scorePops.push({
+                x: player.x,
+                y: player.y - 40,
+                text: 'BLOCK!',
+                t: 0,
+                dur: 0.8
+              });
+            } else {
+              hitPlayer();
+            }
+          }
           continue;
         }
         // 지원기 피격
@@ -1065,7 +1180,7 @@
               x: e.x,
               y: e.y,
               r: 10,
-              vy: 60
+              vy: 108
             };
             itemSpawnedThisWave = true;
           }
@@ -1073,7 +1188,7 @@
           explosions.push({x:e.x,y:e.y,t:0});
           if(invulTime <= 0) hitPlayer();
         }
-        if(Math.random() < 0.5*dt) enemyFire(e);
+        if(Math.random() < 0.15*dt) enemyFire(e);
       }
       // 화면 아래 → 위에서 재합류
       if(e.y > G.h + 40){
@@ -1121,6 +1236,9 @@
     }
     SND.die();
     S.lives--;
+    if(player){
+      player.powerLevel = 1; // 피격 시 파워 초기화
+    }
     helper = null; // 피격 시 지원기 제거
     updateHUD();
     if(S.lives<=0){
@@ -1134,8 +1252,8 @@
       player.y=G.player.y;
       player.cool=0;
     }
-    // 부활 후 잠시 무적
-    invulTime = 1.5;
+    // 부활 후 1초간 여유(무적)
+    invulTime = 1.0;
   }
 
   // ===== Render helpers =====
@@ -1215,6 +1333,24 @@
     flameGrad.addColorStop(1,'#ff4b4b');
     CTX.fillStyle = flameGrad;
     CTX.fill();
+    // 실드 시각 효과
+    if(shieldActive && shieldCharges > 0){
+      CTX.save();
+      const pulse = 0.8 + 0.2*Math.sin(performance.now()/200);
+      CTX.lineWidth = 2.5;
+      CTX.strokeStyle = 'rgba(80,200,255,0.9)';
+      CTX.beginPath();
+      CTX.arc(0,0,26*pulse,0,Math.PI*2);
+      CTX.stroke();
+      const g = CTX.createRadialGradient(0,0,0,0,0,30);
+      g.addColorStop(0,'rgba(160,230,255,0.5)');
+      g.addColorStop(1,'rgba(10,40,80,0)');
+      CTX.fillStyle = g;
+      CTX.beginPath();
+      CTX.arc(0,0,24,0,Math.PI*2);
+      CTX.fill();
+      CTX.restore();
+    }
     // 바닥 그림자
     CTX.globalAlpha = 0.35;
     CTX.fillStyle = '#3bf6c7';
@@ -1366,12 +1502,14 @@
     CTX.restore();
   }
 
+  // 최종 보스 / 로봇 보스 렌더링
   function drawBossShip(){
     if(!boss) return;
     CTX.save();
     CTX.translate(boss.x, boss.y);
+
     if(boss.type === 3){
-      // 스테이지3: 로봇형 실루엣 보스
+      // ==== 스테이지3: 로봇형 보스 ====
       const rx = boss.w * 0.5;
       const ry = boss.h * 0.5;
       // 몸통
@@ -1445,36 +1583,188 @@
       CTX.fillRect(-rx*0.16, -ry*0.42, rx*0.12, ry*0.08);
       CTX.fillRect( rx*0.04, -ry*0.42, rx*0.12, ry*0.08);
     } else {
-      // 스테이지4: 타원형 보스
+      // ==== 스테이지5: 최종 보스 느낌으로 리디자인 ====
       const rx = boss.w * 0.5;
       const ry = boss.h * 0.5;
-      const bodyGrad = CTX.createLinearGradient(0,-ry,0,ry);
-      bodyGrad.addColorStop(0, '#ffffff');
-      bodyGrad.addColorStop(0.3, '#ffd685');
-      bodyGrad.addColorStop(1, '#2b2448');
-      CTX.fillStyle = bodyGrad;
+
+      // 1) 바깥 실루엣 (육각형 + 뿔)
+      CTX.save();
+      const hullGrad = CTX.createLinearGradient(0,-ry,0,ry);
+      hullGrad.addColorStop(0, '#fff7e6');
+      hullGrad.addColorStop(0.3, '#ffc96b');
+      hullGrad.addColorStop(0.75, '#5b2334');
+      hullGrad.addColorStop(1, '#120818');
+      CTX.fillStyle = hullGrad;
       CTX.beginPath();
-      CTX.ellipse(0,0,rx,ry,0,0,Math.PI*2);
+      CTX.moveTo(0, -ry*0.95);
+      CTX.lineTo(rx*0.6, -ry*0.55);
+      CTX.lineTo(rx*0.95, 0);
+      CTX.lineTo(rx*0.55, ry*0.9);
+      CTX.lineTo(-rx*0.55, ry*0.9);
+      CTX.lineTo(-rx*0.95, 0);
+      CTX.lineTo(-rx*0.6, -ry*0.55);
+      CTX.closePath();
       CTX.fill();
-      CTX.lineWidth = 2;
-      CTX.strokeStyle = '#f5b432';
+      CTX.lineWidth = 2.4;
+      CTX.strokeStyle = '#ffb347';
       CTX.stroke();
-      const core = CTX.createRadialGradient(0,0,0,0,0,ry*0.7);
-      core.addColorStop(0,'#fff7e2');
-      core.addColorStop(1,'#ff6e7a');
-      CTX.fillStyle = core;
+
+      // 뿔 (윗쪽 양쪽)
+      CTX.fillStyle = '#f97316';
       CTX.beginPath();
-      CTX.ellipse(0,0,rx*0.45,ry*0.45,0,0,Math.PI*2);
+      CTX.moveTo(-rx*0.3, -ry*0.95);
+      CTX.lineTo(-rx*0.55, -ry*1.2);
+      CTX.lineTo(-rx*0.15, -ry*0.8);
+      CTX.closePath();
+      CTX.moveTo(rx*0.3, -ry*0.95);
+      CTX.lineTo(rx*0.55, -ry*1.2);
+      CTX.lineTo(rx*0.15, -ry*0.8);
+      CTX.closePath();
       CTX.fill();
-      CTX.fillStyle = '#0b1020';
+      CTX.restore();
+
+      // 2) 중앙 장갑 플레이트(겹겹이)
+      CTX.save();
+      CTX.fillStyle = '#1b1025';
       CTX.beginPath();
-      CTX.arc(-rx*0.28, -ry*0.12, 6, 0, Math.PI*2);
-      CTX.arc( rx*0.28, -ry*0.12, 6, 0, Math.PI*2);
+      CTX.moveTo(-rx*0.35, -ry*0.45);
+      CTX.lineTo( rx*0.35, -ry*0.45);
+      CTX.lineTo( rx*0.45,  ry*0.35);
+      CTX.lineTo( 0,         ry*0.7);
+      CTX.lineTo(-rx*0.45,  ry*0.35);
+      CTX.closePath();
       CTX.fill();
+      CTX.lineWidth = 1.8;
+      CTX.strokeStyle = '#fbbf24';
+      CTX.stroke();
+
+      // 안쪽 플레이트
+      const plateGrad = CTX.createLinearGradient(0,-ry*0.4,0,ry*0.6);
+      plateGrad.addColorStop(0,'#2a1535');
+      plateGrad.addColorStop(0.6,'#4c1d3d');
+      plateGrad.addColorStop(1,'#020308');
+      CTX.fillStyle = plateGrad;
+      CTX.beginPath();
+      CTX.moveTo(-rx*0.22, -ry*0.3);
+      CTX.lineTo( rx*0.22, -ry*0.3);
+      CTX.lineTo( rx*0.3,  ry*0.28);
+      CTX.lineTo( 0,       ry*0.55);
+      CTX.lineTo(-rx*0.3,  ry*0.28);
+      CTX.closePath();
+      CTX.fill();
+      CTX.restore();
+
+      // 3) 중앙 거대한 코어(눈동자+마왕 느낌)
+      const coreR = ry * 0.32;
+      const coreGradOuter = CTX.createRadialGradient(0,0,0,0,0,coreR);
+      coreGradOuter.addColorStop(0, '#fff9f0');
+      coreGradOuter.addColorStop(0.4, '#f97316');
+      coreGradOuter.addColorStop(1, 'rgba(0,0,0,0)');
+      CTX.fillStyle = coreGradOuter;
+      CTX.beginPath();
+      CTX.arc(0, 0, coreR, 0, Math.PI*2);
+      CTX.fill();
+
+      const coreGradInner = CTX.createRadialGradient(0,-2,0,0,0,coreR*0.6);
+      coreGradInner.addColorStop(0, '#ffe4e6');
+      coreGradInner.addColorStop(0.45, '#fb7185');
+      coreGradInner.addColorStop(1, '#7f1d1d');
+      CTX.fillStyle = coreGradInner;
+      CTX.beginPath();
+      CTX.ellipse(0, 0, coreR*0.75, coreR*0.6, 0, 0, Math.PI*2);
+      CTX.fill();
+
+      // 세로 눈동자
+      CTX.fillStyle = '#0b0614';
+      CTX.beginPath();
+      CTX.ellipse(0, 0, coreR*0.22, coreR*0.46, 0, 0, Math.PI*2);
+      CTX.fill();
+      CTX.fillStyle = '#fee2e2';
+      CTX.beginPath();
+      CTX.arc(-coreR*0.08, -coreR*0.1, coreR*0.09, 0, Math.PI*2);
+      CTX.fill();
+
+      // 4) 양쪽 대포 포드
+      const podOffsetY = ry*0.05;
+      const podX = rx*0.75;
+      CTX.fillStyle = '#111827';
+      CTX.strokeStyle = '#facc15';
+      CTX.lineWidth = 1.5;
+      // 왼쪽 포드
+      CTX.beginPath();
+      CTX.roundRect(-podX-10, podOffsetY-18, 22, 40, 6);
+      CTX.fill();
+      CTX.stroke();
+      // 오른쪽 포드
+      CTX.beginPath();
+      CTX.roundRect( podX-12, podOffsetY-18, 22, 40, 6);
+      CTX.fill();
+      CTX.stroke();
+      // 포구 발광
+      const podGlow = (xSign)=>{
+        const cx = xSign * podX;
+        const cy = podOffsetY + 18;
+        const g = CTX.createRadialGradient(cx,cy,0,cx,cy,10);
+        g.addColorStop(0,'#fff7ed');
+        g.addColorStop(0.4,'#f97316');
+        g.addColorStop(1,'rgba(0,0,0,0)');
+        CTX.fillStyle = g;
+        CTX.beginPath();
+        CTX.arc(cx,cy,10,0,Math.PI*2);
+        CTX.fill();
+      };
+      podGlow(-1);
+      podGlow(1);
+
+      // 5) 아래쪽 '입' 같은 에너지 포구
+      const mawY = ry*0.55;
+      const mawGrad = CTX.createLinearGradient(0, mawY-8, 0, mawY+18);
+      mawGrad.addColorStop(0, '#fee2e2');
+      mawGrad.addColorStop(0.5, '#fb7185');
+      mawGrad.addColorStop(1, '#450a0a');
+      CTX.fillStyle = mawGrad;
+      CTX.beginPath();
+      CTX.moveTo(-rx*0.26, mawY-8);
+      CTX.quadraticCurveTo(0, mawY+12, rx*0.26, mawY-8);
+      CTX.quadraticCurveTo(0, mawY+24, -rx*0.26, mawY-8);
+      CTX.closePath();
+      CTX.fill();
+
+      // 안쪽 이빨 같은 패턴
+      CTX.strokeStyle = '#fecaca';
+      CTX.lineWidth = 1.2;
+      CTX.beginPath();
+      CTX.moveTo(-rx*0.2, mawY+2);
+      CTX.lineTo(-rx*0.12, mawY+10);
+      CTX.lineTo(-rx*0.04, mawY+2);
+      CTX.lineTo( rx*0.04, mawY+10);
+      CTX.lineTo( rx*0.12, mawY+2);
+      CTX.lineTo( rx*0.2, mawY+10);
+      CTX.stroke();
+
+      // 6) 외곽 오라 링 (위엄용)
+      const auraR = Math.max(rx, ry) * 0.95;
+      const auraGrad = CTX.createRadialGradient(0,0,auraR*0.3,0,0,auraR);
+      auraGrad.addColorStop(0,'rgba(248,250,252,0.0)');
+      auraGrad.addColorStop(0.6,'rgba(248,250,252,0.18)');
+      auraGrad.addColorStop(1,'rgba(248,113,113,0)');
+      CTX.globalAlpha = 0.8;
+      CTX.strokeStyle = '#fbbf24';
+      CTX.lineWidth = 1.5;
+      CTX.beginPath();
+      CTX.arc(0,0,auraR,0,Math.PI*2);
+      CTX.stroke();
+      CTX.globalAlpha = 0.9;
+      CTX.fillStyle = auraGrad;
+      CTX.beginPath();
+      CTX.arc(0,0,auraR,0,Math.PI*2);
+      CTX.fill();
+      CTX.globalAlpha = 1;
     }
+
     CTX.restore();
 
-    // HP 바
+    // === HP 바 ===
     const barW = 260;
     const barH = 10;
     const ratio = Math.max(0, boss.hp / boss.maxHp);
@@ -1491,26 +1781,90 @@
   }
 
   function drawSupportItem(){
-    if(!supportItem) return;
-    const it = supportItem;
-    CTX.save();
-    CTX.translate(it.x, it.y);
-    const tt = performance.now()/300;
-    CTX.rotate(Math.sin(tt)*0.3);
-    CTX.strokeStyle = C.supportItem;
-    CTX.lineWidth = 2;
-    CTX.beginPath();
-    CTX.arc(0,0,it.r+4,0,Math.PI*2);
-    CTX.stroke();
-    const g = CTX.createRadialGradient(0,0,0,0,0,it.r);
-    g.addColorStop(0,'#eafff3');
-    g.addColorStop(0.5,C.supportItem);
-    g.addColorStop(1,'rgba(0,0,0,0)');
-    CTX.fillStyle = g;
-    CTX.beginPath();
-    CTX.arc(0,0,it.r,0,Math.PI*2);
-    CTX.fill();
-    CTX.restore();
+    const drawCircleItem = (it, colorOuter, kind)=>{
+      CTX.save();
+      CTX.translate(it.x, it.y);
+      const tt = performance.now()/300;
+      CTX.rotate(Math.sin(tt)*0.3);
+      // 바깥 링
+      CTX.strokeStyle = colorOuter;
+      CTX.lineWidth = 2;
+      CTX.beginPath();
+      CTX.arc(0,0,it.r+4,0,Math.PI*2);
+      CTX.stroke();
+      // 안쪽 발광
+      const g = CTX.createRadialGradient(0,0,0,0,0,it.r);
+      g.addColorStop(0,'#f9fff8');
+      g.addColorStop(0.55,colorOuter);
+      g.addColorStop(1,'rgba(0,0,0,0)');
+      CTX.fillStyle = g;
+      CTX.beginPath();
+      CTX.arc(0,0,it.r,0,Math.PI*2);
+      CTX.fill();
+      // 픽토그램 아이콘
+      CTX.lineWidth = 2;
+      CTX.strokeStyle = '#02131f';
+      CTX.fillStyle = '#02131f';
+      if(kind === 'ally'){
+        // + 모양
+        CTX.beginPath();
+        CTX.moveTo(-3,0);
+        CTX.lineTo(3,0);
+        CTX.moveTo(0,-3);
+        CTX.lineTo(0,3);
+        CTX.stroke();
+      } else if(kind === 'power'){
+        // 번개 모양
+        CTX.beginPath();
+        CTX.moveTo(-2,-4);
+        CTX.lineTo(1,0);
+        CTX.lineTo(-1,0);
+        CTX.lineTo(2,4);
+        CTX.stroke();
+      } else if(kind === 'ult'){
+        // 폭발 모양
+        CTX.beginPath();
+        CTX.moveTo(0,-4);
+        CTX.lineTo(2,-1);
+        CTX.lineTo(4,0);
+        CTX.lineTo(2,2);
+        CTX.lineTo(0,4);
+        CTX.lineTo(-2,2);
+        CTX.lineTo(-4,0);
+        CTX.lineTo(-2,-1);
+        CTX.closePath();
+        CTX.stroke();
+      } else if(kind === 'shield'){
+        // 방패 모양
+        CTX.beginPath();
+        CTX.moveTo(0,-4);
+        CTX.lineTo(3,-2);
+        CTX.lineTo(3,1);
+        CTX.lineTo(0,4);
+        CTX.lineTo(-3,1);
+        CTX.lineTo(-3,-2);
+        CTX.closePath();
+        CTX.stroke();
+      }
+      CTX.restore();
+    };
+
+    // 지원 아이템
+    if(supportItem){
+      drawCircleItem(supportItem, C.supportItem, 'ally');
+    }
+    // 파워업 아이템
+    for(const it of powerItems){
+      drawCircleItem(it, '#facc15', 'power');
+    }
+    // 궁극기 아이템
+    for(const it of ultItems){
+      drawCircleItem(it, '#38bdf8', 'ult');
+    }
+    // 실드 아이템
+    for(const it of shieldItems){
+      drawCircleItem(it, '#60a5fa', 'shield');
+    }
   }
 
   // ===== Render =====
@@ -1520,8 +1874,8 @@
     CTX.save();
     // 지진(카메라 흔들림)
     if(shakeTime > 0){
-      const f = shakeTime / 0.5; // 0.5초 기준
-      const mag = 6 * f;
+      const f = shakeTime / 0.8; // 0.8초 기준
+      const mag = 10 * f;
       const ox = (Math.random()-0.5)*mag;
       const oy = (Math.random()-0.5)*mag;
       CTX.translate(ox, oy);
