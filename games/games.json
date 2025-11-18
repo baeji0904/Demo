@@ -8,8 +8,10 @@
   { "title": "지뢰찾기", "url": "games/Minesweeper.html",   "thumb": "", "tags": ["퍼즐"],       "desc": "레벨 상/중/하" },
   { "title": "팩맨", "url": "games/pacman.html",   "thumb": "", "tags": ["퍼즐"],       "desc": "레벨 1~5" },  
   { "title": "2048",     "url": "games/2048.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "실행취소/음소거" },
+  { "title": "스네이크",     "url": "games/snake.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "사과 먹기" },
   { "title": "갤러그",   "url": "games/galaga.html",   "thumb": "", "tags": ["슈팅"],       "desc": "다이브/재합류" }
 ]
+
 
 
 
