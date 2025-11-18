@@ -622,6 +622,98 @@
     return [];
   }
 
+  // ===== 말 그리기 (입체 효과) =====
+  function drawPiece(cxPos, cyPos, radius, p){
+    const r = radius;
+
+    ctx.save();
+
+    // 그림자 (바닥에 깔리는 타원)
+    ctx.save();
+    ctx.globalAlpha = 0.38;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.beginPath();
+    ctx.ellipse(
+      cxPos,
+      cyPos + r*0.42,
+      r*0.9,
+      r*0.45,
+      0,
+      0,
+      Math.PI*2
+    );
+    ctx.fill();
+    ctx.restore();
+
+    // 메인 디스크 (나무 계열)
+    const grad = ctx.createRadialGradient(
+      cxPos - r*0.3, cyPos - r*0.55, r*0.2,
+      cxPos,         cyPos + r*0.7,  r*1.2
+    );
+    grad.addColorStop(0, '#fdf4e0');
+    grad.addColorStop(0.45, '#f1ddc0');
+    grad.addColorStop(1, '#c3935d');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cxPos, cyPos, r, 0, Math.PI*2);
+    ctx.fill();
+
+    // 바깥 테두리(어두운 나무)
+    ctx.lineWidth = r*0.13;
+    ctx.strokeStyle = 'rgba(60,38,18,0.95)';
+    ctx.stroke();
+
+    // 색깔 링 (초/한 구분용)
+    ctx.beginPath();
+    ctx.arc(cxPos, cyPos, r*0.82, 0, Math.PI*2);
+    ctx.lineWidth = r*0.18;
+    ctx.strokeStyle = PIECE_COLOR[p.side] || '#ffffff';
+    ctx.globalAlpha = 0.9;
+    ctx.stroke();
+
+    // 안쪽 밝은 링
+    ctx.beginPath();
+    ctx.arc(cxPos, cyPos, r*0.54, 0, Math.PI*2);
+    ctx.lineWidth = r*0.09;
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.globalAlpha = 0.9;
+    ctx.stroke();
+
+    // 상단 하이라이트 패치
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cxPos, cyPos, r*0.92, -Math.PI*0.2, -Math.PI*0.9, true);
+    ctx.lineTo(cxPos, cyPos);
+    ctx.closePath();
+    const hi = ctx.createLinearGradient(
+      cxPos, cyPos - r,
+      cxPos, cyPos
+    );
+    hi.addColorStop(0, 'rgba(255,255,255,0.95)');
+    hi.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = hi;
+    ctx.fill();
+    ctx.restore();
+
+    // 글자(한자) + 외곽선
+    const color = PIECE_COLOR[p.side] || '#ffffff';
+    const ch = (LABEL[p.type] && LABEL[p.type][p.side]) || '?';
+    ctx.font = (r*1.5).toFixed(0) + 'px "Nanum Myeongjo","Noto Serif KR",system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.lineWidth = r*0.22;
+    ctx.strokeStyle = 'rgba(0,0,0,0.78)';
+    ctx.globalAlpha = 1;
+    ctx.strokeText(ch, cxPos, cyPos + r*0.02);
+
+    ctx.fillStyle = color;
+    ctx.fillText(ch, cxPos, cyPos + r*0.02);
+
+    ctx.restore();
+  }
+
   // ===== 렌더링 =====
   function fitCanvas(){
     const cssW = cvs.clientWidth;
@@ -638,7 +730,12 @@
     const padY = 40;
 
     ctx.clearRect(0,0,w,h);
-    ctx.fillStyle = '#141a33';
+
+    // 배경 살짝 그라데이션
+    const bgGrad = ctx.createLinearGradient(0,0,w,h);
+    bgGrad.addColorStop(0,'#101426');
+    bgGrad.addColorStop(1,'#050714');
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0,0,w,h);
 
     const boardW = w - padX*2;
@@ -647,16 +744,25 @@
     const cellY = boardH / (ROWS-1);
     geom = { padX, padY, cellX, cellY };
 
-    // 판 바탕
+    // 판 바탕 (나무 판 느낌)
     ctx.save();
-    ctx.fillStyle = '#2b2a1f';
-    ctx.globalAlpha = 0.25;
-    ctx.fillRect(padX-16, padY-16, boardW+32, boardH+32);
+    const wood = ctx.createLinearGradient(padX-24, padY-24, padX+boardW+24, padY+boardH+24);
+    wood.addColorStop(0, '#4b3b24');
+    wood.addColorStop(1, '#3a2c1c');
+    ctx.fillStyle = wood;
+    ctx.fillRect(padX-18, padY-18, boardW+36, boardH+36);
+    ctx.restore();
+
+    // 안쪽 바닥
+    ctx.save();
+    ctx.fillStyle = '#e5c27a';
+    ctx.globalAlpha = 0.96;
+    ctx.fillRect(padX-6, padY-6, boardW+12, boardH+12);
     ctx.restore();
 
     // 격자
-    ctx.strokeStyle = '#c6a264';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = '#b3833b';
+    ctx.lineWidth = 1.4;
     ctx.globalAlpha = 0.9;
     for(let c=0;c<COLS;c++){
       const x = padX + c*cellX;
@@ -674,7 +780,7 @@
     }
 
     // 궁 X자
-    ctx.globalAlpha = 0.9;
+    ctx.globalAlpha = 0.95;
     function drawPalace(topRow){
       const centerCol = 4;
       const r0 = topRow;
@@ -696,10 +802,10 @@
     drawPalace(0);
     drawPalace(ROWS-3);
 
-    // 마지막 수
+    // 마지막 수 표시
     if(lastMove){
       ctx.save();
-      ctx.globalAlpha = 0.25;
+      ctx.globalAlpha = 0.24;
       ctx.fillStyle = '#7aa2ff';
       let v = modelToView(lastMove.from.x, lastMove.from.y);
       let x1 = padX + v.col*cellX;
@@ -719,7 +825,7 @@
     // 선택된 말 & 이동 가능 칸
     if(selected){
       ctx.save();
-      ctx.globalAlpha = 0.35;
+      ctx.globalAlpha = 0.32;
       ctx.fillStyle = '#10b981';
       const v = modelToView(selected.x, selected.y);
       const sx = padX + v.col*cellX;
@@ -730,10 +836,10 @@
       ctx.restore();
 
       ctx.save();
-      ctx.globalAlpha = 0.75;
+      ctx.globalAlpha = 0.85;
       ctx.strokeStyle = '#34d399';
-      ctx.lineWidth = 2;
-      for(const mv of selected.moves || []){
+      ctx.lineWidth = 2.2;
+      for(const mv of (selected.moves || [])){
         const vv = modelToView(mv.x, mv.y);
         const mx = padX + vv.col*cellX;
         const my = padY + vv.row*cellY;
@@ -746,8 +852,6 @@
     }
 
     // 말 그리기
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     for(let y=0;y<ROWS;y++){
       for(let x=0;x<COLS;x++){
         const p = board[y][x];
@@ -756,27 +860,7 @@
         const cxPos = padX + v.col*cellX;
         const cyPos = padY + v.row*cellY;
         const radius = Math.min(cellX,cellY)*0.33;
-
-        const grad = ctx.createRadialGradient(
-          cxPos-radius*0.3, cyPos-radius*0.3, radius*0.2,
-          cxPos, cyPos, radius
-        );
-        grad.addColorStop(0, '#f5f5f5');
-        grad.addColorStop(1, '#d0d0d0');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(cxPos, cyPos, radius, 0, Math.PI*2);
-        ctx.fill();
-
-        ctx.lineWidth = 1.4;
-        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-        ctx.stroke();
-
-        const color = PIECE_COLOR[p.side] || '#ffffff';
-        ctx.fillStyle = color;
-        ctx.font = (radius*1.2).toFixed(0) + 'px "Noto Sans KR", system-ui';
-        const ch = (LABEL[p.type] && LABEL[p.type][p.side]) || '?';
-        ctx.fillText(ch, cxPos, cyPos+1);
+        drawPiece(cxPos, cyPos, radius, p);
       }
     }
   }
