@@ -6,45 +6,202 @@
 <title>Minesweeper – HTML5 (우클릭/터치 깃발 + 오버레이 클릭 통과)</title>
 <style>
   :root{
-    --bg:#0e1220; --panel:#141933; --ink:#e9edff; --muted:#9aa3c7; --line:#242a49; --accent:#7aa2ff;
-    --safe:#1a2146; --reveal:#0b0f1e; --flag:#ff9aa2; --mine:#ffd685; --zero:#11172d;
+    --bg:#0e1220;
+    --panel:#141933;
+    --ink:#e9edff;
+    --muted:#9aa3c7;
+    --line:#242a49;
+    --accent:#7aa2ff;
+    --safe:#1a2146;
+    --reveal:#0b0f1e;
+    --flag:#ff9aa2;
+    --mine:#ffd685;
+    --zero:#11172d;
+    --cell-size:34px;          /* ✅ 셀 크기: JS에서 동적으로 변경 */
   }
   *{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto}
-  .wrap{max-width:980px;margin:0 auto;padding:16px}
-  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-  h1{margin:0;font-size:22px}
-  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .tag{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:#121632;color:var(--muted)}
-  select,.btn{background:#1b2145;border:1px solid #2b325c;color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer}
-  .btn:disabled{opacity:.6;cursor:not-allowed}
-  .board-wrap{margin-top:12px}
+  html,body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto;
+  }
+  .wrap{
+    max-width:980px;
+    margin:0 auto;
+    padding:16px;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  h1{
+    margin:0;
+    font-size:22px;
+  }
+  .row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .tag{
+    display:inline-flex;
+    gap:6px;
+    align-items:center;
+    padding:6px 10px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:#121632;
+    color:var(--muted);
+    font-size:13px;
+  }
+  select,.btn{
+    background:#1b2145;
+    border:1px solid #2b325c;
+    color:var(--ink);
+    border-radius:10px;
+    padding:8px 12px;
+    cursor:pointer;
+    font-size:14px;
+  }
+  .btn:hover{
+    background:#222a57;
+  }
+  .btn:disabled{
+    opacity:.6;
+    cursor:not-allowed;
+  }
+
+  .board-wrap{
+    margin-top:12px;
+    overflow-x:auto;         /* 넓은 난이도에서도 안전하게 */
+  }
+
   .board{
-    display:grid;gap:6px;background:var(--panel);padding:10px;border:1px solid var(--line);border-radius:16px;
-    box-shadow:0 10px 28px rgba(0,0,0,.25);
+    --gap:6px;
+    display:grid;
+    gap:var(--gap);
+    background:var(--panel);
+    padding:10px;
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:0 10px 28px rgba(0,0,0,.28);
     user-select:none; -webkit-user-select:none; -ms-user-select:none;
+    width:max-content;
+    margin:0 auto;
   }
+
+  /* ✅ 입체감 있는 셀 스타일 */
   .cell{
-    width:34px;height:34px;border-radius:8px;border:1px solid #1e2444; display:grid;place-items:center;
-    font-weight:800; user-select:none; -webkit-user-select:none; touch-action:none;
-    background:var(--safe); color:#dfe6ff;
-    transition:transform .04s ease, background .12s ease, color .12s ease;
+    width:var(--cell-size);
+    height:var(--cell-size);
+    border-radius:calc(var(--cell-size) * 0.28);
+    border:1px solid #1f2648;
+    display:grid;
+    place-items:center;
+    font-weight:800;
+    user-select:none; -webkit-user-select:none;
+    touch-action:none;
+    background:
+      radial-gradient(circle at 25% 20%, #3a4680 0, #202a58 30%, #111736 100%);
+    color:#dfe6ff;
+    box-shadow:
+      0 2px 4px rgba(0,0,0,0.45),
+      0 0 0 1px rgba(8,12,32,0.5);
+    transition:
+      transform .06s ease,
+      box-shadow .1s ease,
+      background .16s ease,
+      color .16s ease,
+      border-color .16s ease;
+    font-size:calc(var(--cell-size) * 0.55);
   }
-  .cell:active{transform:scale(.98)}
-  .cell.revealed{background:var(--reveal);border-color:#1a1f3a}
-  .cell.zero{color:#9aa3c7;background:var(--zero)}
-  .cell.flag{background:#2a1b2a;color:#ffd5dc;border-color:#40263f}
-  .cell.mine{background:#3b2f0f;color:#ffefc4}
-  .n1{color:#7aa2ff} .n2{color:#8ef6d0} .n3{color:#ffd685} .n4{color:#ff9aa2}
-  .n5{color:#b79cff} .n6{color:#c5fffd} .n7{color:#e9edff} .n8{color:#9aa3c7}
-  .hud{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .cell:hover{
+    transform:translateY(-1px);
+    box-shadow:
+      0 3px 6px rgba(0,0,0,0.55),
+      0 0 0 1px rgba(122,162,255,0.45);
+  }
+  .cell:active{
+    transform:scale(.97) translateY(0);
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.6),
+      0 0 0 1px rgba(8,12,32,0.7);
+  }
+
+  /* 열린 칸: 눌린 느낌 */
+  .cell.revealed{
+    background:
+      linear-gradient(145deg,#050919,#050713);
+    border-color:#111529;
+    box-shadow:
+      inset 0 2px 3px rgba(0,0,0,0.85),
+      0 0 0 1px rgba(0,0,0,0.7);
+  }
+
+  .cell.zero{
+    color:#9aa3c7;
+    background:
+      radial-gradient(circle at 10% 0%, #1b203c 0, #050713 55%);
+  }
+
+  /* 깃발 */
+  .cell.flag{
+    background:
+      radial-gradient(circle at 20% 0%, #ffb3c6 0, #5a233a 45%, #2b1224 100%);
+    color:#ffe9ef;
+    border-color:#ffb0c7;
+    box-shadow:
+      0 3px 7px rgba(0,0,0,0.7),
+      0 0 0 1px rgba(255,176,199,0.6);
+  }
+
+  /* 지뢰 */
+  .cell.mine{
+    background:
+      radial-gradient(circle at 30% 20%, #ffe9a6 0, #ffcf6a 28%, #5a3b16 70%, #241307 100%);
+    color:#2b1300;
+    border-color:#ffdc8a;
+    box-shadow:
+      0 4px 9px rgba(0,0,0,0.8),
+      0 0 0 2px rgba(0,0,0,0.6);
+  }
+
+  /* 숫자 색상 (살짝 더 선명하게) */
+  .n1{color:#7aa2ff}
+  .n2{color:#8ef6d0}
+  .n3{color:#ffd685}
+  .n4{color:#ff9aa2}
+  .n5{color:#b79cff}
+  .n6{color:#c5fffd}
+  .n7{color:#e9edff}
+  .n8{color:#9aa3c7}
+
+  .hud{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-top:10px;
+  }
 
   /* 🔧 오버레이가 클릭을 가로채지 않도록 */
   .overlay{
-    position:fixed;inset:0;background:rgba(0,0,0,.35);
-    display:none;place-items:center;
-    color:#e9edff;font-size:22px;font-weight:800;text-align:center;padding:20px;
-    pointer-events:none;           /* ← 이것 때문에 뒤의 버튼 클릭이 통과됩니다 */
+    position:fixed;
+    inset:0;
+    background:radial-gradient(circle at 50% 30%, rgba(40,51,120,0.65), rgba(0,0,0,0.75));
+    display:none;
+    place-items:center;
+    color:#e9edff;
+    font-size:22px;
+    font-weight:800;
+    text-align:center;
+    padding:20px;
+    pointer-events:none;  /* 뒤의 버튼 클릭 통과 */
   }
   .overlay.show{display:grid}
 </style>
@@ -86,6 +243,7 @@
   // ====== DOM ======
   const $ = id => document.getElementById(id);
   const elBoard = $('board');
+  const elBoardWrap = elBoard.parentElement;
   const elTime = $('time');
   const elMinesLeft = $('mines-left');
   const elBest = $('best');
@@ -143,6 +301,22 @@
     for(let r=0;r<cfg.h;r++) for(let c=0;c<cfg.w;c++) fn(r,c,grid[r][c]);
   }
 
+  // ✅ 레이아웃: 해상도/화면 폭에 따라 셀 크기 자동 조정
+  function layoutBoard(){
+    const wrapWidth = elBoardWrap.clientWidth || 600;
+    const gap = 6;                        // CSS .board --gap 과 동일
+    const padding = 10 * 2;               // .board padding 좌우
+    const maxBoardWidth = wrapWidth - padding - 8; // 여유 여백
+
+    let cellSize = Math.floor((maxBoardWidth - gap*(cfg.w-1)) / cfg.w);
+    // 너무 작지도, 너무 크지도 않게 제한
+    cellSize = Math.max(20, Math.min(44, cellSize));
+
+    elBoard.style.setProperty('--cell-size', cellSize + 'px');
+    elBoard.style.gridTemplateColumns = `repeat(${cfg.w}, var(--cell-size))`;
+    elBoard.style.gridTemplateRows = `repeat(${cfg.h}, var(--cell-size))`;
+  }
+
   // ====== Game Setup ======
   function newGrid(){
     grid = Array.from({length:cfg.h},()=>Array.from({length:cfg.w},()=>({
@@ -183,9 +357,8 @@
   }
 
   function drawBoard(){
-    elBoard.style.gridTemplateColumns = `repeat(${cfg.w}, 34px)`;
-    elBoard.style.gridTemplateRows = `repeat(${cfg.h}, 34px)`;
     elBoard.innerHTML='';
+    layoutBoard();
     for(let r=0;r<cfg.h;r++){
       for(let c=0;c<cfg.w;c++){
         const d=document.createElement('div');
@@ -247,6 +420,7 @@
 
     if(cell.mine){
       el.classList.add('mine');
+      if(!el.textContent) el.textContent = '💣';
       lose();
       return;
     }
@@ -402,8 +576,13 @@
     reset();
   });
 
+  // 윈도우 리사이즈 시 레이아웃만 다시 계산
+  window.addEventListener('resize', ()=> {
+    layoutBoard();
+  });
+
   // ====== Boot ======
-  document.body.style.overflowX='auto';  // 큰 보드를 모바일에서 스크롤 허용
+  document.body.style.overflowX='auto';  // 필요시 가로 스크롤 허용
   cfg = DIFFS[elDiff.value];
   reset();
 
