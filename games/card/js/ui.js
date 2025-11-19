@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { elementLabel, elementIcon, elementClass } from './cardData.js';
 
 const handEl   = document.getElementById('hand');
+const enemyHandEl = document.getElementById('enemyHand');   // ✅ 적 손패 컨테이너
 const logEl    = document.getElementById('log');
 const barEnemy = document.getElementById('barEnemy');
 const barPlayer= document.getElementById('barPlayer');
@@ -87,6 +88,17 @@ export function renderHand(){
     const el = createCardElement(d.card);
     el.dataset.index = idx;
     handEl.appendChild(el);
+  });
+}
+
+/* ✅ 적 손패 렌더링 */
+export function renderEnemyHand(){
+  if(!enemyHandEl) return;
+  enemyHandEl.innerHTML = '';
+  state.enemyDeck.forEach(d=>{
+    const el = createCardElement(d.card);
+    el.classList.add('card-enemy');
+    enemyHandEl.appendChild(el);
   });
 }
 
