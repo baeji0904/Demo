@@ -19,7 +19,8 @@ export const initialState = {
   enemyMaxHP:10,
   enemyHP:10,
   enemyElem:'normal',
-  deck:[],
+  deck:[],        // 플레이어 덱
+  enemyDeck:[],   // ✅ 적 덱 추가
   running:false,
   speed:'normal',
   sfx:true,
@@ -40,6 +41,7 @@ export function saveGame(){
     const data = {
       ...state,
       deck: state.deck.map(x=>x.id),
+      enemyDeck: state.enemyDeck.map(x=>x.id),   // ✅ 적 덱도 같이 저장
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   }catch(e){}
@@ -52,6 +54,7 @@ export function loadGame(){
     const d = JSON.parse(raw);
     state = { ...initialState, ...d };
     state.deck = (d.deck || []).map(id=>({id,card:findCard(id)})).filter(x=>x.card);
+    state.enemyDeck = (d.enemyDeck || []).map(id=>({id,card:findCard(id)})).filter(x=>x.card); // ✅ 복원
     return true;
   }catch(e){
     return false;
