@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>자동전투 카드대전 – 데모</title>
+  <!-- CSS: Games/card/css/main.css -->
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <h1>자동전투 카드대전</h1>
+      <div class="header-sub">5속성 자동 전투 카드 게임 – 데모 구현</div>
+    </div>
+    <div class="row">
+      <span class="tag">스테이지 <b id="uiStage">1</b></span>
+      <span class="tag">턴 <b id="uiTurn">0</b></span>
+      <button class="btn btn-small" id="btnHelp">📘 게임 설명</button>
+      <button class="btn btn-small" id="btnGallery">🃏 카드 갤러리</button>
+      <button class="btn btn-small" id="btnLeaderboard">🏆 로컬 순위</button>
+      <button class="btn btn-small btn-ghost" id="btnSettings">⚙️ 설정</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 왼쪽: 메인 게임 -->
+    <section class="card-frame">
+      <div class="card">
+        <div class="card-header">
+          <span>전투</span>
+          <div class="row">
+            <button class="btn btn-small" id="btnMainStart">🗡 새 게임 시작</button>
+            <button class="btn btn-small btn-ghost" id="btnContinue">▶ 이어서 하기</button>
+          </div>
+        </div>
+
+        <!-- HP 바 영역 -->
+        <div class="hp-row">
+          <div class="hp-label">
+            <span class="name">적</span>
+            <span class="badge" id="uiEnemyElem">노멀</span>
+          </div>
+          <div class="hp-bar-wrap">
+            <div class="hp-bar enemy" id="barEnemy"></div>
+          </div>
+          <div class="hp-text" id="txtEnemyHP">0 / 0</div>
+        </div>
+
+        <div class="hp-row">
+          <div class="hp-label">
+            <span class="name">플레이어</span>
+            <span class="badge" id="uiPlayerElem">노멀</span>
+          </div>
+          <div class="hp-bar-wrap">
+            <div class="hp-bar" id="barPlayer"></div>
+          </div>
+          <div class="hp-text" id="txtPlayerHP">0 / 0</div>
+        </div>
+
+        <!-- 전투 연출 영역 -->
+        <div class="battle-wrap" id="battleArea">
+          <div class="entity-box player">
+            <div class="entity-name">플레이어</div>
+            <div class="entity-sub">손패에 많이 포함된 속성이 방어 속성이 됩니다.</div>
+          </div>
+          <div class="entity-box enemy">
+            <div class="entity-name">적 몬스터</div>
+            <div class="entity-sub">스테이지가 오를수록 더 강해집니다.</div>
+          </div>
+        </div>
+
+        <!-- 하단 컨트롤 -->
+        <div class="bottom-row">
+          <div class="row">
+            <span>속도</span>
+            <div class="speed-buttons" id="speedButtons">
+              <button data-speed="slow">느림</button>
+              <button data-speed="normal" class="active">보통</button>
+              <button data-speed="fast">빠름</button>
+              <button data-speed="veryfast">매우 빠름</button>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn btn-small btn-ghost" id="btnToggleSfx">
+              <span id="txtSfx">🔊 효과음 ON</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 손패: 5×2 그리드 영역 -->
+        <div class="hand" id="hand"></div>
+      </div>
+    </section>
+
+    <!-- 오른쪽: 로그 + 설명 -->
+    <aside class="card-frame">
+      <div class="card">
+        <div class="card-header">
+          <span>전투 로그</span>
+          <span style="font-size:11px;color:var(--muted);">최근 턴의 행동 기록</span>
+        </div>
+        <div class="log-box" id="log"></div>
+
+        <div class="aside">
+          <div class="aside-title">게임 팁</div>
+          <ul>
+            <li>시작할 때 공격 카드 <b>1장</b>을 선택합니다.</li>
+            <li>전투 중에는 손패의 <b>왼쪽 카드부터</b> 자동으로 발동됩니다.</li>
+            <li>스테이지 클리어 시 새 카드 <b>4장</b> 중 하나를 보상으로 선택합니다.</li>
+            <li>보상 카드는 스테이지마다 <b>1번</b> 다시 뽑을 수 있습니다.</li>
+            <li>손패는 최대 <b>10장</b>까지이며 화면에는
+              <b>1–5 / 6–10</b> 순서로 표시됩니다.</li>
+            <li>불→독→전기→물→불 순환 상성이 존재합니다.</li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<!-- ===== 오버레이들 ===== -->
+
+<!-- 시작 카드 선택 -->
+<div class="overlay-backdrop" id="ovStart">
+  <div class="overlay">
+    <h2>시작 카드 선택</h2>
+    <div class="overlay-sub">
+기본 공격카드를 선택하여 게임을 시작하세요!
+    </div>
+    <div class="overlay-cards" id="ovStartCards"></div>
+    <div class="overlay-footer" style="justify-content:space-between;">
+      <button class="btn btn-small btn-ghost btn-wide" id="ovStartCancel">뒤로가기</button>
+      <button class="btn btn-small btn-wide" id="ovStartConfirm">선택 완료</button>
+    </div>
+  </div>
+</div>
+
+<!-- 스테이지 보상 -->
+<div class="overlay-backdrop" id="ovReward">
+  <div class="overlay">
+    <h2 id="ovRewardTitle">스테이지 클리어!</h2>
+    <div class="overlay-sub">
+보상 카드를 선택하세요!
+손패 왼쪽에 추가하거나, 손패 카드와 교체하거나, 보상을 건너뛸 수 있습니다.
+    </div>
+    <div class="overlay-cards" id="ovRewardCards"></div>
+    <div class="reward-note">카드 선택 시 확대됩니다</div>
+    <div class="reward-actions">
+      <button class="btn btn-wide btn-purple" id="ovRewardViewHand">손패 확인</button>
+      <button class="btn btn-wide btn-blue" id="ovRewardReroll">다시 뽑기</button>
+      <div class="reward-actions-row">
+        <button class="btn btn-wide btn-teal" id="ovRewardAdd">손패에 추가</button>
+        <button class="btn btn-wide btn-blue" id="ovRewardReplace">손패와 교체</button>
+        <button class="btn btn-wide btn-gray" id="ovRewardSkip">보상 건너뛰기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 교체 대상 선택 -->
+<div class="overlay-backdrop" id="ovReplace">
+  <div class="overlay">
+    <h2>교체할 카드 선택</h2>
+    <div class="overlay-sub">손패에서 바꿀 카드를 선택하세요.</div>
+    <div class="overlay-cards" id="ovReplaceCards"></div>
+    <div class="overlay-footer">
+      <button class="btn btn-small btn-ghost" id="ovReplaceCancel">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 도움말 -->
+<div class="overlay-backdrop" id="ovHelp">
+  <div class="overlay">
+    <h2>게임 설명</h2>
+    <div class="overlay-sub">
+1. 시작 카드 한 장을 골라 게임을 시작합니다.
+2. 전투 중에는 손패 왼쪽부터 카드가 자동 발동됩니다.
+3. 각 카드는 공격력, 명중률, 발동 횟수, 속성을 가집니다.
+4. 스테이지를 클리어하면 새 카드 4장 중 하나를 보상으로 선택할 수 있습니다.
+5. 보상 카드는 스테이지마다 1번 다시 뽑을 수 있습니다.
+6. 손패는 최대 10장까지 유지되며 1–5 / 6–10 순서로 표시됩니다.
+7. 덱에 어떤 속성이 많은지에 따라 플레이어 방어 속성이 결정됩니다.
+    </div>
+    <div class="overlay-footer">
+      <button class="btn btn-small" id="ovHelpClose">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 카드 갤러리 -->
+<div class="overlay-backdrop" id="ovGallery">
+  <div class="overlay">
+    <h2>카드 갤러리</h2>
+    <div class="overlay-sub">게임에서 등장하는 카드들을 미리 볼 수 있습니다.</div>
+    <div class="overlay-cards" id="ovGalleryCards" style="max-height:260px;"></div>
+    <div class="overlay-footer">
+      <button class="btn btn-small" id="ovGalleryClose">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 설정 -->
+<div class="overlay-backdrop" id="ovSettings">
+  <div class="overlay">
+    <h2>설정</h2>
+    <div class="overlay-sub">플레이어 이름과 효과음을 조절할 수 있습니다.</div>
+    <div class="field">
+      <label>플레이어 이름</label>
+      <input type="text" id="inputPlayerName" maxlength="20" placeholder="플레이어">
+    </div>
+    <div class="field" style="margin-top:8px;">
+      <label>효과음</label>
+      <button class="btn btn-small btn-ghost" id="btnSettingsSfx">효과음 ON</button>
+    </div>
+    <div class="overlay-footer">
+      <button class="btn btn-small btn-ghost" id="ovSettingsCancel">취소</button>
+      <button class="btn btn-small" id="ovSettingsSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 게임 오버 -->
+<div class="overlay-backdrop" id="ovGameOver">
+  <div class="overlay">
+    <h2>게임 종료</h2>
+    <div class="overlay-sub">더 이상 전투를 진행할 수 없습니다.</div>
+    <div style="font-size:11px;margin-bottom:6px;color:var(--muted);text-align:center;">
+      <div>플레이어: <b id="ovGoName">플레이어</b></div>
+      <div>도달 스테이지: <b id="ovGoStage">1</b></div>
+      <div>턴 수: <b id="ovGoTurns">0</b></div>
+      <div>총 공격량: <b id="ovGoDamage">0</b></div>
+      <div>받은 피해: <b id="ovGoTaken">0</b></div>
+    </div>
+    <div class="overlay-footer" style="justify-content:space-between;">
+      <button class="btn btn-small btn-ghost" id="ovGoMenu">닫기</button>
+      <button class="btn btn-small" id="ovGoRetry">다시 도전</button>
+    </div>
+  </div>
+</div>
+
+<!-- 로컬 리더보드 -->
+<div class="overlay-backdrop" id="ovLeaderboard">
+  <div class="overlay">
+    <h2>로컬 순위</h2>
+    <div class="overlay-sub">이 브라우저에서 플레이한 기록만 저장됩니다.</div>
+    <table class="table" id="tblLeaderboard">
+      <thead>
+      <tr>
+        <th>#</th><th>이름</th><th>스테이지</th><th>턴</th><th>딜량</th><th>피해</th><th>날짜</th>
+      </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="overlay-footer">
+      <button class="btn btn-small btn-ghost" id="btnLbClear">기록 초기화</button>
+      <button class="btn btn-small" id="ovLeaderboardClose">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 엔트리 포인트: Games/card/js/main.js -->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
