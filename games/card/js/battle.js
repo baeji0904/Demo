@@ -1,6 +1,6 @@
 import { state, SPEED_DELAY, saveGame, saveToLeaderboard } from './state.js';
-import { findCard, pickRandomCards, elementMultiplier } from './cardData.js';
-import { renderHand, appendLog, updateBars, floatText, showToast, createCardElement } from './ui.js';
+import { findCard, pickRandomCards, elementMultiplier, CARD_LIBRARY } from './cardData.js';
+import { renderHand, renderEnemyHand, appendLog, updateBars, floatText, showToast, createCardElement, getPlayerDefenseElement } from './ui.js';
 import { audio } from './audio.js';
 
 /* 오버레이 DOM */
@@ -35,23 +35,70 @@ let replaceIndexTarget = null;
 /* 스테이지 세팅 */
 
 function setupStage(){
+  // HP / 속성
   state.enemyMaxHP = 12 + (state.stage-1)*4;
   state.enemyHP    = state.enemyMaxHP;
   const elems = ['normal','fire','poison','electric','water'];
   state.enemyElem  = elems[state.stage % elems.length];
+
+  // ✅ 적 덱 구성 (스테이지에 따라 카드 수 증가)
+  const deckSize = Math.min(10, 3 + Math.floor((state.stage-1)/2)); // 3장부터 시작, 2스테이지마다 +1, 최대 10
+  state.enemyDeck = [];
+  for(let i=0;i<deckSize;i++){
+    const idx = (state.stage + i) % CARD_LIBRARY.length;
+    const card = CARD_LIBRARY[idx];
+    state.enemyDeck.push({ id:card.id, card });
+  }
+
+  renderEnemyHand();
   updateBars();
-  appendLog(`스테이지 ${state.stage} 시작!`);
+  appendLog(`스테이지 ${state.stage} 시작! (적 카드 ${deckSize}장)`);
 }
 
-/* 적 턴 */
+/* 적 턴: 덱 기반 공격 */
 
 function enemyAttack(){
-  const dmg = 2 + Math.floor((state.stage-1)/2);
-  state.playerHP = Math.max(0, state.playerHP - dmg);
-  state.totalDamageTaken += dmg;
-  audio.hurt();
-  floatText('player-dmg','player',dmg);
-  appendLog(`적이 공격합니다. 플레이어가 ${dmg} 피해를 입었습니다.`);
+  if(!state.enemyDeck || state.enemyDeck.length===0){
+    // 안전 장치: 덱이 비어 있으면 기존 고정 피해 사용
+    const dmg = 2 + Math.floor((state.stage-1)/2);
+    state.playerHP = Math.max(0, state.playerHP - dmg);
+    state.totalDamageTaken += dmg;
+    audio.hurt();
+    floatText('player-dmg','player',dmg);
+    appendLog(`적이 공격합니다. 플레이어가 ${dmg} 피해를 입었습니다.`);
+    return;
+  }
+
+  const defenseElem = getPlayerDefenseElement();
+  let total = 0;
+  let anyHit = false;
+
+  state.enemyDeck.forEach(item=>{
+    const c = item.card;
+    for(let i=0;i<c.repeat;i++){
+      if(state.playerHP<=0) break;
+      if(Math.random() <= c.hit){
+        const mul = elementMultiplier(c.element, defenseElem);
+        const dmg = Math.max(1, Math.round(c.power*mul*0.9));
+        state.playerHP = Math.max(0, state.playerHP - dmg);
+        state.totalDamageTaken += dmg;
+        total += dmg;
+        anyHit = true;
+        floatText('player-dmg','player',dmg);
+      }else{
+        floatText('miss','player',0);
+      }
+    }
+  });
+
+  if(anyHit){
+    audio.hurt();
+    appendLog(`적이 카드들을 사용해 총 ${total} 피해를 줍니다.`);
+  }else{
+    audio.miss();
+    appendLog('적의 공격이 모두 빗나갔습니다.');
+  }
+
   if(state.playerHP<=0){
     state.playerHP=0;
     appendLog('플레이어가 쓰러졌습니다.');
@@ -104,7 +151,7 @@ async function doTurnLoop(token){
       audio.stage();
       state.running=false;
       await new Promise(r=>setTimeout(r,500));
-      handleStageClear();
+      handleStageClear();          // ✅ 이제 제대로 정의됨
       return;
     }
 
@@ -128,7 +175,7 @@ async function doTurnLoop(token){
   state.running=false;
 }
 
-/* 스테이지 클리어 & 보상 */
+/* 스테이지 클리어 → 보상 오버레이 */
 
 function renderRewardCards(){
   ovRewardCards.innerHTML='';
@@ -154,6 +201,13 @@ function openRewardOverlay(){
   saveGame();
 }
 
+/* ✅ 실제로 호출되는 스테이지 클리어 함수 */
+function handleStageClear(){
+  openRewardOverlay();
+}
+
+/* 보상 동작들 */
+
 function applyRewardAdd(){
   if(!rewardSelectedId){
     showToast('카드를 먼저 선택해 주세요.');
@@ -174,103 +228,4 @@ function applyRewardAdd(){
 
 function openReplaceOverlay(){
   if(!rewardSelectedId){
-    showToast('카드를 먼저 선택해 주세요.');
-    return;
-  }
-  if(state.deck.length===0){
-    showToast('손패가 비어 있습니다.');
-    return;
-  }
-  replaceIndexTarget = null;
-  ovReplaceCards.innerHTML='';
-  state.deck.forEach((d,idx)=>{
-    const el = createCardElement(d.card);
-    el.dataset.index = idx;
-    el.addEventListener('click',()=>{
-      replaceIndexTarget = idx;
-      Array.from(ovReplaceCards.children).forEach(c=>c.classList.remove('selected'));
-      el.classList.add('selected');
-      confirmReplace();
-    });
-    ovReplaceCards.appendChild(el);
-  });
-  ovReplace.classList.add('show');
-}
-
-function confirmReplace(){
-  if(replaceIndexTarget==null){
-    showToast('교체할 카드를 선택해 주세요.');
-    return;
-  }
-  const newCard = findCard(rewardSelectedId);
-  const oldCard = state.deck[replaceIndexTarget].card;
-  state.deck[replaceIndexTarget] = {id:newCard.id, card:newCard};
-  appendLog(`손패에서 ${oldCard.name} → ${newCard.name} 으로 교체했습니다.`);
-  ovReplace.classList.remove('show');
-  ovReward.classList.remove('show');
-  renderHand();
-  state.stage++;
-  startBattle();
-}
-
-function skipReward(){
-  appendLog('보상을 건너뛰고 다음 스테이지로 이동합니다.');
-  ovReward.classList.remove('show');
-  state.stage++;
-  startBattle();
-}
-
-function rerollReward(){
-  if(rewardRerolled){
-    showToast('이번 스테이지에서는 이미 다시 뽑았습니다.');
-    return;
-  }
-  rewardRerolled = true;
-  rewardSelectedId = null;
-  rewardPool = pickRandomCards(4);
-  renderRewardCards();
-  appendLog('보상 카드를 다시 뽑었습니다.');
-}
-
-/* 게임 오버 */
-
-function handleGameOver(){
-  state.gameOver=true;
-  ovGoName.textContent   = state.playerName;
-  ovGoStage.textContent  = state.stage;
-  ovGoTurns.textContent  = state.turn;
-  ovGoDamage.textContent = state.totalDamageDealt;
-  ovGoTaken.textContent  = state.totalDamageTaken;
-  ovGameOver.classList.add('show');
-  saveToLeaderboard();
-  saveGame();
-}
-
-/* 외부에서 호출 */
-
-export function startBattle(){
-  state.gameOver=false;
-  loopToken++;
-  const token=loopToken;
-  setupStage();
-  saveGame();
-  doTurnLoop(token);
-}
-
-/* 버튼 이벤트 바인딩 */
-
-ovRewardAdd.addEventListener('click', applyRewardAdd);
-ovRewardReplace.addEventListener('click', openReplaceOverlay);
-ovRewardSkip.addEventListener('click', skipReward);
-ovRewardViewHand.addEventListener('click', ()=>{
-  showToast(`현재 손패 ${state.deck.length}장`);
-});
-ovRewardReroll.addEventListener('click', rerollReward);
-
-ovReplaceCancel.addEventListener('click', ()=> ovReplace.classList.remove('show'));
-
-ovGoMenu.addEventListener('click', ()=> ovGameOver.classList.remove('show'));
-ovGoRetry.addEventListener('click', ()=>{
-  ovGameOver.classList.remove('show');
-  window.dispatchEvent(new CustomEvent('requestNewGame'));
-});
+    showToast('카드를
