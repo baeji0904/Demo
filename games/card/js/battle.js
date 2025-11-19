@@ -17,7 +17,7 @@ import {
 } from './ui.js';
 import { audio } from './audio.js';
 
-/* ===== 오버레이 DOM ===== */
+/* 오버레이 DOM */
 const ovReward = document.getElementById('ovReward');
 const ovRewardTitle = document.getElementById('ovRewardTitle');
 const ovRewardCards = document.getElementById('ovRewardCards');
@@ -40,27 +40,24 @@ const ovGoTaken = document.getElementById('ovGoTaken');
 const ovGoMenu = document.getElementById('ovGoMenu');
 const ovGoRetry = document.getElementById('ovGoRetry');
 
-/* ===== 상태 ===== */
+/* 상태 */
 let loopToken = 0;
 let rewardPool = [];
 let rewardSelectedId = null;
 let rewardRerolled = false;
 let replaceIndexTarget = null;
 
-/* ===== 스테이지 설정 ===== */
+/* 스테이지 설정 */
 
 function setupStage() {
-  // 적 HP / 속성
   state.enemyMaxHP = 12 + (state.stage - 1) * 4;
   state.enemyHP = state.enemyMaxHP;
 
   const elems = ['normal', 'fire', 'poison', 'electric', 'water'];
   state.enemyElem = elems[state.stage % elems.length];
 
-  // 적 덱 구성 (스테이지에 따라 카드 수 증가)
-  const deckSize = Math.min(10, 3 + Math.floor((state.stage - 1) / 2)); // 3장부터 시작, 2스테이지마다 +1, 최대 10
+  const deckSize = Math.min(10, 3 + Math.floor((state.stage - 1) / 2));
   state.enemyDeck = [];
-
   for (let i = 0; i < deckSize; i += 1) {
     const idx = (state.stage + i) % CARD_LIBRARY.length;
     const card = CARD_LIBRARY[idx];
@@ -72,17 +69,16 @@ function setupStage() {
   appendLog(`스테이지 ${state.stage} 시작! (적 카드 ${deckSize}장)`);
 }
 
-/* ===== 적 공격 ===== */
+/* 적 공격 */
 
 function enemyAttack() {
-  // 적 덱이 비어 있으면 안전장치로 고정 피해
   if (!state.enemyDeck || state.enemyDeck.length === 0) {
-    const dmg = 2 + Math.floor((state.stage - 1) / 2);
-    state.playerHP = Math.max(0, state.playerHP - dmg);
-    state.totalDamageTaken += dmg;
+    const dmgSimple = 2 + Math.floor((state.stage - 1) / 2);
+    state.playerHP = Math.max(0, state.playerHP - dmgSimple);
+    state.totalDamageTaken += dmgSimple;
     audio.hurt();
-    floatText('player-dmg', 'player', dmg);
-    appendLog(`적이 공격합니다. 플레이어가 ${dmg} 피해를 입었습니다.`);
+    floatText('player-dmg', 'player', dmgSimple);
+    appendLog(`적이 공격합니다. 플레이어가 ${dmgSimple} 피해를 입었습니다.`);
     return;
   }
 
@@ -123,7 +119,7 @@ function enemyAttack() {
   }
 }
 
-/* ===== 턴 루프 ===== */
+/* 턴 루프 */
 
 async function doTurnLoop(token) {
   if (state.gameOver) return;
@@ -141,18 +137,16 @@ async function doTurnLoop(token) {
     updateBars();
     appendLog(`턴 ${state.turn} 시작.`);
 
-    // 플레이어 카드 사용
+    // 플레이어 카드
+    /* eslint-disable no-await-in-loop */
     for (const item of state.deck) {
       if (state.enemyHP <= 0 || state.playerHP <= 0 || token !== loopToken) break;
       const c = item.card;
 
       for (let i = 0; i < c.repeat; i += 1) {
-        if (state.enemyHP <= 0 || state.playerHP <= 0 || token !== loopToken) {
-          break;
-        }
+        if (state.enemyHP <= 0 || state.playerHP <= 0 || token !== loopToken) break;
 
         const delay = SPEED_DELAY[state.speed];
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, delay));
 
         if (Math.random() <= c.hit) {
@@ -176,23 +170,20 @@ async function doTurnLoop(token) {
         }
       }
     }
+    /* eslint-enable no-await-in-loop */
 
-    // 적 쓰러짐 체크
     if (state.enemyHP <= 0) {
       state.enemyHP = 0;
       updateBars();
       appendLog(`스테이지 ${state.stage} 클리어!`);
       audio.stage();
       state.running = false;
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, 500));
       handleStageClear();
       return;
     }
 
-    // 적 공격
     const delay = SPEED_DELAY[state.speed];
-    // eslint-disable-next-line no-await-in-loop
     await new Promise((r) => setTimeout(r, delay));
 
     if (state.playerHP > 0) {
@@ -205,7 +196,6 @@ async function doTurnLoop(token) {
       state.running = false;
       updateBars();
       audio.over();
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, 500));
       handleGameOver();
       return;
@@ -215,7 +205,7 @@ async function doTurnLoop(token) {
   state.running = false;
 }
 
-/* ===== 스테이지 클리어 & 보상 ===== */
+/* 스테이지 클리어 & 보상 */
 
 function renderRewardCards() {
   ovRewardCards.innerHTML = '';
@@ -281,9 +271,7 @@ function openReplaceOverlay() {
     el.dataset.index = String(idx);
     el.addEventListener('click', () => {
       replaceIndexTarget = idx;
-      Array.from(ovReplaceCards.children).forEach((c) =>
-        c.classList.remove('selected'),
-      );
+      Array.from(ovReplaceCards.children).forEach((c) => c.classList.remove('selected'));
       el.classList.add('selected');
       confirmReplace();
     });
@@ -301,9 +289,7 @@ function confirmReplace() {
   const newCard = findCard(rewardSelectedId);
   const oldCard = state.deck[replaceIndexTarget].card;
   state.deck[replaceIndexTarget] = { id: newCard.id, card: newCard };
-  appendLog(
-    `손패에서 ${oldCard.name} → ${newCard.name} 으로 교체했습니다.`,
-  );
+  appendLog(`손패에서 ${oldCard.name} → ${newCard.name} 으로 교체했습니다.`);
   ovReplace.classList.remove('show');
   ovReward.classList.remove('show');
   renderHand();
@@ -330,7 +316,7 @@ function rerollReward() {
   appendLog('보상 카드를 다시 뽑었습니다.');
 }
 
-/* ===== 게임 오버 ===== */
+/* 게임 오버 */
 
 function handleGameOver() {
   state.gameOver = true;
@@ -344,7 +330,7 @@ function handleGameOver() {
   saveGame();
 }
 
-/* ===== 외부에서 호출되는 시작 함수 ===== */
+/* 외부에서 호출 */
 
 export function startBattle() {
   state.gameOver = false;
@@ -355,7 +341,7 @@ export function startBattle() {
   doTurnLoop(token);
 }
 
-/* ===== 버튼 이벤트 바인딩 ===== */
+/* 버튼 이벤트 바인딩 */
 
 ovRewardAdd.addEventListener('click', applyRewardAdd);
 ovRewardReplace.addEventListener('click', openReplaceOverlay);
