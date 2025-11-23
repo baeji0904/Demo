@@ -1,5 +1,6 @@
 [
   { "title": "벽돌깨기", "url": "games/breakout.html", "thumb": "", "tags": ["브레이크아웃"], "desc": "배속/난이도/파워업 포함" },
+  { "title": "켄켄퍼즐",     "url": "games/kenken.html",   "thumb": "", "tags": ["보드"],       "desc": "숫자 퍼즐" },
   { "title": "오목",     "url": "games/gomoku.html",   "thumb": "", "tags": ["보드"],       "desc": "간단한 오목 대국" },
   { "title": "바둑",     "url": "games/baduk.html",    "thumb": "", "tags": ["보드"],       "desc": "기본 규칙 데모" },
   { "title": "체스",     "url": "games/chess.html",    "thumb": "", "tags": ["보드","AI"],  "desc": "체크/메이트/승격" },
@@ -15,6 +16,7 @@
   { "title": "카드대전",     "url": "games/card/card.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "카드대전" },
   { "title": "갤러그",   "url": "games/galaga.html",   "thumb": "", "tags": ["슈팅"],       "desc": "다이브/재합류" }
 ]
+
 
 
 
