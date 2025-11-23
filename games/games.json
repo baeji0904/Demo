@@ -14,9 +14,11 @@
   { "title": "스네이크",     "url": "games/snake.html",     "thumb": "thumbnail/snake.jpg", "tags": ["퍼즐"],       "desc": "사과 먹기" },
   { "title": "땅따먹기",     "url": "games/boardwar.html",     "thumb": "thumbnail/boardwar.jpg", "tags": ["퍼즐"],       "desc": "영역차지" },
   { "title": "하노이탑",     "url": "games/hanoi.html",     "thumb": "thumbnail/hanoi.jpg", "tags": ["퍼즐"],       "desc": "탑 옮기기" },
+  { "title": "프리셀",     "url": "games/freecell.html",     "thumb": "thumbnail/freecell.jpg", "tags": ["퍼즐"],       "desc": "순서 맞추기" },
   { "title": "카드대전",     "url": "games/card/card.html",     "thumb": "thumbnail/card.jpg", "tags": ["퍼즐"],       "desc": "카드대전" },
   { "title": "갤러그",   "url": "games/galaga.html",   "thumb": "thumbnail/galaga.jpg", "tags": ["슈팅"],       "desc": "다이브/재합류" }
 ]
+
 
 
 
