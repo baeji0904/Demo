@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>켄켄 퍼즐</title>
+<style>
+  :root{
+    --bg:#070a16; --panel:#11152b; --ink:#e9edff; --muted:#9aa3c7; --accent:#7aa2ff;
+    --panel2:#0b0f1e;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font-size:22px;margin:0}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+  .btn{
+    padding:7px 11px;
+    border:1px solid #2a315e;
+    border-radius:12px;
+    background:#1b2145;
+    color:var(--ink);
+    cursor:pointer;
+    font-size:14px;
+  }
+  .btn-primary{
+    background:linear-gradient(180deg,#2e4cff,#2337a7);
+    border-color:#3a50ff;
+  }
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  .tag{
+    display:inline-flex;gap:8px;align-items:center;
+    padding:6px 10px;border:1px solid #2b325c;
+    border-radius:999px;background:#121632;color:var(--muted);
+  }
+
+  .panel{
+    background:var(--panel2);
+    border:1px solid #222747;
+    border-radius:16px;
+    padding:12px;
+  }
+
+  #board-wrap{
+    max-width:640px;
+    margin:0 auto;
+  }
+
+  table#grid{
+    border-collapse:separate;
+    border-spacing:2px;
+    margin:4px auto 10px;
+    background:radial-gradient(900px 450px at 50% -200px,#111827 10%,#020617 60%,#000000 100%);
+    padding:8px;
+    border-radius:18px;
+    box-shadow:0 18px 40px rgba(15,23,42,0.85);
+  }
+
+  #grid td{
+    position:relative;
+    width:52px;
+    height:52px;
+    padding:0;
+    background:
+      radial-gradient(circle at 18% 15%, rgba(248,250,252,0.12) 0, transparent 45%),
+      radial-gradient(circle at 80% 85%, rgba(15,23,42,0.9) 0, rgba(15,23,42,0.2) 55%),
+      linear-gradient(145deg,#020617,#030712 40%,#020617 100%);
+    border:1px solid #4b5563;
+    border-radius:10px;
+    box-shadow:
+      inset 0 0 0 1px rgba(15,23,42,0.8),
+      0 2px 4px rgba(15,23,42,0.8);
+    cursor:pointer;
+    overflow:hidden;
+  }
+
+  .cell-inner{
+    position:relative;
+    width:100%;
+    height:100%;
+  }
+
+  .cage-label{
+    position:absolute;
+    left:4px;
+    top:3px;
+    padding:1px 6px;
+    border-radius:999px;
+    font-size:11px;
+    color:#e5e7eb;
+    background:rgba(15,23,42,0.9);
+    border:1px solid rgba(148,163,184,0.4);
+    max-width:90%;
+    white-space:nowrap;
+  }
+
+  .cell-value{
+    position:absolute;
+    left:50%;
+    top:52%;
+    transform:translate(-50%,-50%);
+    font-size:20px;
+    font-weight:600;
+    color:#e5e7eb;
+    text-shadow:0 1px 2px rgba(15,23,42,0.9);
+    font-variant-numeric:tabular-nums;
+  }
+
+  #grid td.selected{
+    box-shadow:
+      0 0 0 2px rgba(250,204,21,0.9) inset,
+      0 0 18px rgba(250,204,21,0.55);
+    background:
+      radial-gradient(circle at 18% 15%, rgba(250,250,210,0.3) 0, transparent 45%),
+      linear-gradient(145deg,#1f2937,#020617 50%,#020617 100%);
+  }
+
+  #grid td.error{
+    background:
+      radial-gradient(circle at 18% 15%, rgba(254,242,242,0.24) 0, transparent 45%),
+      linear-gradient(145deg,#7f1d1d,#450a0a 60%,#111827 100%);
+    box-shadow:
+      inset 0 0 0 2px rgba(248,113,113,0.9),
+      0 0 14px rgba(248,113,113,0.4);
+  }
+
+  label{font-size:14px;color:var(--muted)}
+  select{
+    padding:5px 8px;
+    border-radius:10px;
+    border:1px solid #2b325c;
+    background:#10142c;
+    color:var(--ink);
+    font-size:14px;
+  }
+
+  .info{font-size:14px;color:#9aa3c7;margin-top:6px}
+
+  .status-good{color:#22c55e}
+  .status-bad{color:#f97373}
+
+  /* 숫자 패드 */
+  #num-pad{
+    margin-top:8px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    justify-content:center;
+  }
+  .pad-btn{
+    min-width:42px;
+    height:40px;
+    padding:0 10px;
+    border-radius:12px;
+    border:1px solid rgba(148,163,184,0.6);
+    background:
+      radial-gradient(circle at 20% 0%, rgba(248,250,252,0.25) 0, transparent 40%),
+      linear-gradient(180deg,#111827,#020617);
+    color:#e5e7eb;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow:0 4px 10px rgba(15,23,42,0.9);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    touch-action:manipulation;
+  }
+  .pad-btn:active{
+    transform:translateY(1px) scale(0.98);
+    box-shadow:0 2px 6px rgba(15,23,42,0.9);
+    background:
+      radial-gradient(circle at 20% 0%, rgba(248,250,252,0.18) 0, transparent 40%),
+      linear-gradient(180deg,#020617,#020617);
+  }
+  .pad-btn-clear{
+    min-width:70px;
+    font-size:14px;
+    border-color:rgba(248,113,113,0.7);
+    color:#fecaca;
+  }
+
+  @media (max-width:520px){
+    #grid td{
+      width:44px;
+      height:44px;
+    }
+    .cell-value{font-size:18px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>켄켄 퍼즐</h1>
+    <div class="row">
+      <button id="btn-new" class="btn btn-primary">새 퍼즐</button>
+      <button id="btn-check" class="btn">정답 확인</button>
+      <button id="btn-clear" class="btn">모두 지우기</button>
+    </div>
+  </header>
+
+  <div class="row" style="margin-top:10px;margin-bottom:8px">
+    <span class="tag">
+      크기&nbsp;
+      <select id="sel-size">
+        <option value="3">3 × 3</option>
+        <option value="4" selected>4 × 4</option>
+        <option value="5">5 × 5</option>
+        <option value="6">6 × 6</option>
+        <option value="7">7 × 7</option>
+        <option value="8">8 × 8</option>
+      </select>
+    </span>
+    <span class="tag">상태 <b id="status-label">크기를 고르고 새 퍼즐을 눌러주세요</b></span>
+  </div>
+
+  <div id="board-wrap" class="panel">
+    <table id="grid" aria-label="켄켄 퍼즐판"></table>
+
+    <!-- 모바일/PC 공통 숫자 패드 -->
+    <div id="num-pad"></div>
+
+    <div class="info">
+      각 칸에 <b>1 ~ N</b>까지 숫자를 넣어 가로·세로에 중복이 없게 만들고,<br>
+      굵은 선으로 묶인 칸들(케이지)의 <b>연산 결과</b>가 표시된 목표값이 되도록 맞춰보세요.<br>
+      칸을 클릭한 후 <b>키보드 숫자</b> 또는 아래 <b>숫자 패드</b>로 입력할 수 있습니다.
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const gridEl   = document.getElementById('grid');
+  const padEl    = document.getElementById('num-pad');
+  const selSize  = document.getElementById('sel-size');
+  const btnNew   = document.getElementById('btn-new');
+  const btnCheck = document.getElementById('btn-check');
+  const btnClear = document.getElementById('btn-clear');
+  const statusEl = document.getElementById('status-label');
+
+  const S = {
+    size:4,
+    solution:[],    // [r][c] 정답 숫자
+    cages:[],       // {id, cells:[{r,c}], op, target, label, anchor:{r,c}}
+    cageIdGrid:[],  // [r][c] → cageId
+    values:[],      // 플레이어 입력 [r][c]
+    selected:null   // {r,c} or null
+  };
+
+  function setStatus(text, goodBad){
+    statusEl.classList.remove('status-good','status-bad');
+    if(goodBad === 'good') statusEl.classList.add('status-good');
+    if(goodBad === 'bad')  statusEl.classList.add('status-bad');
+    statusEl.textContent = text;
+  }
+
+  // --- 유틸 ---
+  function randInt(max){
+    return Math.floor(Math.random()*max);
+  }
+
+  // 라틴 스퀘어 생성 (간단 회전 방식)
+  function generateSolution(n){
+    const grid = [];
+    for(let r=0;r<n;r++){
+      const row=[];
+      for(let c=0;c<n;c++){
+        row.push((c+r)%n + 1);
+      }
+      grid.push(row);
+    }
+    return grid;
+  }
+
+  const DIRS = [
+    {dr:-1, dc:0},
+    {dr:1, dc:0},
+    {dr:0, dc:-1},
+    {dr:0, dc:1}
+  ];
+
+  // 케이지 분할 (랜덤 직교 영역)
+  function generateCages(solution){
+    const n = solution.length;
+    const cellsLeft = [];
+    for(let r=0;r<n;r++){
+      for(let c=0;c<n;c++){
+        cellsLeft.push({r,c});
+      }
+    }
+
+    const used = Array.from({length:n},()=>Array(n).fill(false));
+    const cages = [];
+    const cageIdGrid = Array.from({length:n},()=>Array(n).fill(-1));
+    const maxSize = n <= 4 ? 3 : 4;
+    let nextId = 0;
+
+    while(cellsLeft.length){
+      const idx = randInt(cellsLeft.length);
+      const start = cellsLeft.splice(idx,1)[0];
+      const cageCells = [start];
+      used[start.r][start.c] = true;
+
+      const desiredSize = 1 + randInt(maxSize);
+      while(cageCells.length < desiredSize){
+        const boundary = [];
+        for(const cell of cageCells){
+          for(const d of DIRS){
+            const nr = cell.r + d.dr;
+            const nc = cell.c + d.dc;
+            if(nr<0||nr>=n||nc<0||nc>=n) continue;
+            if(used[nr][nc]) continue;
+            boundary.push({r:nr,c:nc});
+          }
+        }
+        if(!boundary.length) break;
+        const b = boundary[randInt(boundary.length)];
+        used[b.r][b.c] = true;
+        cageCells.push(b);
+
+        // cellsLeft 에서 제거
+        for(let k=cellsLeft.length-1;k>=0;k--){
+          const t=cellsLeft[k];
+          if(t.r===b.r && t.c===b.c){
+            cellsLeft.splice(k,1);
+            break;
+          }
+        }
+      }
+
+      const id = nextId++;
+      const vals = cageCells.map(p=>solution[p.r][p.c]);
+      let op = '';
+      let target = vals[0];
+      let label = '';
+
+      if(cageCells.length === 1){
+        op='';
+        target = vals[0];
+        label = String(target);
+      }else{
+        const sum  = vals.reduce((a,b)=>a+b,0);
+        const prod = vals.reduce((a,b)=>a*b,1);
+        const cand = [];
+        cand.push({op:'+','target':sum});
+        cand.push({op:'×','target':prod});
+
+        if(cageCells.length === 2){
+          const a = vals[0], b = vals[1];
+          const max = Math.max(a,b), min=Math.min(a,b);
+          cand.push({op:'-','target':max-min});
+          if(max % min === 0){
+            cand.push({op:'÷','target':max/min});
+          }
+        }
+        const ch = cand[randInt(cand.length)];
+        op = ch.op;
+        target = ch.target;
+        label = target + op;
+      }
+
+      let anchor = cageCells[0];
+      for(const cell of cageCells){
+        if(cell.r < anchor.r || (cell.r===anchor.r && cell.c < anchor.c)){
+          anchor = cell;
+        }
+      }
+
+      const cage = {id, cells:cageCells, op, target, label, anchor};
+      cages.push(cage);
+      for(const cell of cageCells){
+        cageIdGrid[cell.r][cell.c] = id;
+      }
+    }
+
+    return {cages, cageIdGrid};
+  }
+
+  function buildEmptyValues(n){
+    return Array.from({length:n},()=>Array(n).fill(0));
+  }
+
+  function cageIdAt(r,c){
+    const n = S.size;
+    if(r<0||r>=n||c<0||c>=n) return -1;
+    return S.cageIdGrid[r][c];
+  }
+
+  function getCell(r,c){
+    return gridEl.querySelector(`td[data-r="${r}"][data-c="${c}"]`);
+  }
+
+  function selectCell(r,c){
+    const prev = S.selected;
+    if(prev){
+      const tdPrev = getCell(prev.r,prev.c);
+      if(tdPrev) tdPrev.classList.remove('selected');
+    }
+    S.selected = {r,c};
+    const td = getCell(r,c);
+    if(td) td.classList.add('selected');
+  }
+
+  function updateCellDisplay(r,c){
+    const td = getCell(r,c);
+    if(!td) return;
+    td.classList.remove('error');
+    const v = S.values[r][c];
+    const valDiv = td.querySelector('.cell-value');
+    valDiv.textContent = v ? v : '';
+  }
+
+  // --- 숫자 패드 생성 ---
+  function buildPad(){
+    const n = S.size;
+    padEl.innerHTML = '';
+    for(let v=1; v<=n; v++){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pad-btn';
+      btn.dataset.val = String(v);
+      btn.textContent = v;
+      padEl.appendChild(btn);
+    }
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'pad-btn pad-btn-clear';
+    clearBtn.dataset.val = 'clear';
+    clearBtn.textContent = '지우기';
+    padEl.appendChild(clearBtn);
+  }
+
+  // --- 보드 그리기 ---
+  function buildGrid(){
+    const n = S.size;
+    gridEl.innerHTML = '';
+    gridEl.style.width = (n*52 + 20) + 'px';
+
+    for(let r=0;r<n;r++){
+      const tr = document.createElement('tr');
+      for(let c=0;c<n;c++){
+        const td = document.createElement('td');
+        td.dataset.r = r;
+        td.dataset.c = c;
+
+        const inner = document.createElement('div');
+        inner.className = 'cell-inner';
+
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'cage-label';
+        labelDiv.textContent = '';
+
+        const valDiv = document.createElement('div');
+        valDiv.className = 'cell-value';
+        valDiv.textContent = '';
+
+        inner.appendChild(labelDiv);
+        inner.appendChild(valDiv);
+        td.appendChild(inner);
+        tr.appendChild(td);
+      }
+      gridEl.appendChild(tr);
+    }
+
+    // 케이지 외곽선
+    const ngrid = S.cageIdGrid;
+    const thin = '1px solid #4b5563';
+    const thick = '3px solid #e5e7eb';
+
+    for(let r=0;r<n;r++){
+      for(let c=0;c<n;c++){
+        const td = getCell(r,c);
+        const id = ngrid[r][c];
+
+        const upDiff    = cageIdAt(r-1,c) !== id;
+        const downDiff  = cageIdAt(r+1,c) !== id;
+        const leftDiff  = cageIdAt(r,c-1) !== id;
+        const rightDiff = cageIdAt(r,c+1) !== id;
+
+        td.style.borderTop    = upDiff    ? thick : thin;
+        td.style.borderBottom = downDiff  ? thick : thin;
+        td.style.borderLeft   = leftDiff  ? thick : thin;
+        td.style.borderRight  = rightDiff ? thick : thin;
+      }
+    }
+
+    // 케이지 라벨
+    for(const cage of S.cages){
+      const {r,c} = cage.anchor;
+      const td = getCell(r,c);
+      const labelDiv = td.querySelector('.cage-label');
+      labelDiv.textContent = cage.label;
+    }
+
+    S.selected = null;
+  }
+
+  // --- 새 퍼즐 생성 ---
+  function newPuzzle(){
+    const n = parseInt(selSize.value,10);
+    S.size = n;
+    S.solution = generateSolution(n);
+    const cagesInfo = generateCages(S.solution);
+    S.cages = cagesInfo.cages;
+    S.cageIdGrid = cagesInfo.cageIdGrid;
+    S.values = buildEmptyValues(n);
+    S.selected = null;
+    buildGrid();
+    buildPad();
+    setStatus('퍼즐이 생성되었습니다. 칸을 선택하고 숫자를 입력해보세요.', '');
+  }
+
+  // --- 그리드 클릭 ---
+  gridEl.addEventListener('click', e=>{
+    const td = e.target.closest('td');
+    if(!td) return;
+    const r = parseInt(td.dataset.r,10);
+    const c = parseInt(td.dataset.c,10);
+    selectCell(r,c);
+  });
+
+  // --- 숫자 패드 클릭 ---
+  padEl.addEventListener('click', e=>{
+    const btn = e.target.closest('.pad-btn');
+    if(!btn) return;
+    if(!S.selected){
+      setStatus('먼저 칸을 선택한 뒤 숫자를 눌러 주세요.', 'bad');
+      return;
+    }
+    const r = S.selected.r;
+    const c = S.selected.c;
+    const val = btn.dataset.val;
+    if(val === 'clear'){
+      S.values[r][c] = 0;
+      updateCellDisplay(r,c);
+      setStatus('해당 칸을 비웠습니다.', '');
+      return;
+    }
+    const n = S.size;
+    const num = parseInt(val,10);
+    if(num >= 1 && num <= n){
+      S.values[r][c] = num;
+      updateCellDisplay(r,c);
+    }
+  });
+
+  // --- 키보드 입력 ---
+  window.addEventListener('keydown', e=>{
+    if(!S.selected) return;
+    const n = S.size;
+    const r = S.selected.r;
+    const c = S.selected.c;
+
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+      e.preventDefault();
+      let nr=r, nc=c;
+      if(e.key==='ArrowUp') nr = Math.max(0, r-1);
+      if(e.key==='ArrowDown') nr = Math.min(n-1, r+1);
+      if(e.key==='ArrowLeft') nc = Math.max(0, c-1);
+      if(e.key==='ArrowRight') nc = Math.min(n-1, c+1);
+      selectCell(nr,nc);
+      return;
+    }
+
+    if(e.key==='Backspace' || e.key==='Delete' || e.key==='0'){
+      e.preventDefault();
+      S.values[r][c] = 0;
+      updateCellDisplay(r,c);
+      return;
+    }
+
+    if(e.key>='1' && e.key<='9'){
+      const v = parseInt(e.key,10);
+      if(v>=1 && v<=n){
+        e.preventDefault();
+        S.values[r][c] = v;
+        updateCellDisplay(r,c);
+      }
+    }
+  });
+
+  // --- 정답 확인 ---
+  function checkSolution(){
+    const n = S.size;
+    let complete = true;
+    let allCorrect = true;
+
+    for(let r=0;r<n;r++){
+      for(let c=0;c<n;c++){
+        const td = getCell(r,c);
+        td.classList.remove('error');
+        const v = S.values[r][c];
+        if(!v){
+          complete = false;
+          allCorrect = false;
+          continue;
+        }
+        if(v !== S.solution[r][c]){
+          allCorrect = false;
+          td.classList.add('error');
+        }
+      }
+    }
+
+    if(allCorrect && complete){
+      setStatus('정답입니다! 🎉', 'good');
+    }else if(!complete){
+      setStatus('아직 비어 있는 칸이 있어요. 빨간 칸은 틀린 숫자입니다.', 'bad');
+    }else{
+      setStatus('틀린 칸이 있습니다. 빨간 칸을 다시 확인해보세요.', 'bad');
+    }
+  }
+
+  // --- 모두 지우기 ---
+  function clearBoard(){
+    const n = S.size;
+    for(let r=0;r<n;r++){
+      for(let c=0;c<n;c++){
+        S.values[r][c]=0;
+        updateCellDisplay(r,c);
+        getCell(r,c).classList.remove('error');
+      }
+    }
+    setStatus('모든 입력을 지웠습니다. 다시 도전해보세요.', '');
+  }
+
+  // 버튼
+  btnNew.addEventListener('click', newPuzzle);
+  btnCheck.addEventListener('click', checkSolution);
+  btnClear.addEventListener('click', clearBoard);
+  selSize.addEventListener('change', newPuzzle);
+
+  // 첫 화면: 기본 퍼즐
+  newPuzzle();
+})();
+</script>
+</body>
+</html>
