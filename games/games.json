@@ -4,6 +4,7 @@
   { "title": "바둑",     "url": "games/baduk.html",    "thumb": "", "tags": ["보드"],       "desc": "기본 규칙 데모" },
   { "title": "체스",     "url": "games/chess.html",    "thumb": "", "tags": ["보드","AI"],  "desc": "체크/메이트/승격" },
   { "title": "장기",     "url": "games/janggi.html",    "thumb": "", "tags": ["보드","AI"],  "desc": "장군" },
+  { "title": "고누",     "url": "games/gonu.html",    "thumb": "", "tags": ["보드","AI"],  "desc": "우물/호박 고누" },
   { "title": "테트리스", "url": "games/tetris.html",   "thumb": "", "tags": ["퍼즐"],       "desc": "레벨·핸디캡" },
   { "title": "지뢰찾기", "url": "games/Minesweeper.html",   "thumb": "", "tags": ["퍼즐"],       "desc": "레벨 상/중/하" },
   { "title": "팩맨", "url": "games/pacman.html",   "thumb": "", "tags": ["퍼즐"],       "desc": "레벨 1~5" },  
@@ -13,6 +14,7 @@
   { "title": "카드대전",     "url": "games/card/card.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "카드대전" },
   { "title": "갤러그",   "url": "games/galaga.html",   "thumb": "", "tags": ["슈팅"],       "desc": "다이브/재합류" }
 ]
+
 
 
 
