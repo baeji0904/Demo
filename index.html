@@ -5,86 +5,146 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Demo_Game</title>
 <style>
-  :root{--bg:#0e1220;--ink:#e9edff;--muted:#9aa3c7;--card:#141933}
-  *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui}
-  .wrap{max-width:1100px;margin:0 auto;padding:16px}
-  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-  h1{margin:0;font-size:22px}
-  input{background:#121632;border:1px solid #2b325c;border-radius:10px;color:var(--ink);padding:8px 10px;min-width:240px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:12px}
-  .card{background:var(--card);border:1px solid #242a49;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
-  .thumb{aspect-ratio:16/9;background:#0b0f1e;display:grid;place-items:center;font-size:12px;color:#7aa2ff}
-  .meta{padding:12px} .title{font-weight:700;margin:0 0 4px} .desc{color:var(--muted);font-size:14px;margin:0 0 10px}
-  .btn{margin:12px;border-top:1px solid #242a49;padding:10px;text-align:center;background:#1b2145;border-radius:10px;color:var(--ink);text-decoration:none}
-  footer{color:var(--muted);font-size:13px;margin-top:14px}
+  :root{--bg:#0e1220;--ink:#e9edff;--muted:#9aa3c7;--card:#141933}
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font:16px/1.55 system-ui;
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:16px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{margin:0;font-size:22px}
+  input{
+    background:#121632;
+    border:1px solid #2b325c;
+    border-radius:10px;
+    color:var(--ink);
+    padding:8px 10px;
+    min-width:240px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+    gap:14px;
+    margin-top:12px;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid #242a49;
+    border-radius:14px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  .thumb{
+    aspect-ratio:16/9;
+    background:#0b0f1e;
+    display:grid;
+    place-items:center;
+    font-size:12px;
+    color:#7aa2ff;
+  }
+  .meta{padding:12px}
+  .title{font-weight:700;margin:0 0 4px}
+  .desc{color:var(--muted);font-size:14px;margin:0 0 10px}
+  .btn{
+    margin:12px;
+    border-top:1px solid #242a49;
+    padding:10px;
+    text-align:center;
+    background:#1b2145;
+    border-radius:10px;
+    color:var(--ink);
+    text-decoration:none;
+  }
+  footer{color:var(--muted);font-size:13px;margin-top:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>Demo_Game</h1>
-    <input id="q" type="search" placeholder="게임 검색… (이름, 태그)">
-  </header>
+  <header>
+    <h1>Demo_Game</h1>
+    <input id="q" type="search" placeholder="게임 검색… (이름, 태그)">
+  </header>
 
-  <div id="grid" class="grid" aria-live="polite"></div>
-  <footer>© Demo_Game— HTML5 데모 모음</footer>
+  <div id="grid" class="grid" aria-live="polite"></div>
+  <footer>© Demo_Game— HTML5 데모 모음</footer>
 </div>
 
 <script>
 (async function(){
-  const grid = document.getElementById('grid');
-  const q = document.getElementById('q');
-  let games = [];
+  const grid = document.getElementById('grid');
+  const q = document.getElementById('q');
+  let games = [];
 
-  try{
-    // 원래의 상대 경로로 다시 시도합니다. URL 파싱 문제는 이 경로에서 발생하지 않아야 합니다.
-    const res = await fetch('games/games.json', {cache:'no-store'});
-    
-    // 404와 같은 오류 상태 코드를 명확히 처리합니다.
+  try{
+    // index.html 이 있는 디렉터리 기준으로 base 경로 계산
+    // 예) /Demo_Game/index.html -> /Demo_Game/
+    const path = window.location.pathname;
+    const basePath = path.endsWith('/')
+      ? path
+      : path.replace(/[^\/]+$/, '');
+
+    // 항상 index.html 옆의 games/games.json 을 바라보도록
+    const url = basePath + 'games/games.json';
+
+    const res = await fetch(url, {cache:'no-store'});
     if (!res.ok) {
-        throw new Error(`파일을 찾을 수 없습니다. HTTP Status: ${res.status}`);
+      throw new Error(`파일을 찾을 수 없습니다. HTTP Status: ${res.status}`);
     }
 
-    games = await res.json();
-  }catch(e){
-    // 오류 메시지에 파일 구조에 대한 안내를 추가하여 404 문제를 해결하도록 돕습니다.
-    grid.innerHTML = `
-        <div style="color:#ff9aa2; border: 1px solid #7c3a3a; padding: 16px; border-radius: 8px; background: #291a1c; margin-top: 20px;">
-            <strong style="color: #fff;">⚠️ 게임 목록을 불러오지 못했습니다.</strong>
-            <p style="margin-top: 8px;">
-              **[games]** 폴더와 그 안에 **[games.json]** 파일이
-              웹사이트의 루트 경로에 **정확히** 업로드되었는지 확인해주세요.
-            </p>
-            <div style="font-size: 13px; margin-top: 8px; color: #ccc;">(오류 상세: ${e.message || '네트워크 연결 오류'})</div>
+    games = await res.json();
+  }catch(e){
+    grid.innerHTML = `
+      <div style="color:#ff9aa2; border: 1px solid #7c3a3a; padding: 16px;
+                  border-radius: 8px; background: #291a1c; margin-top: 20px;">
+        ⚠️ 게임 목록을 불러오지 못했습니다.<br>
+        <strong style="color:#fff;">
+          이 HTML 파일과 같은 폴더에 <code>games</code> 폴더가 있고,
+          그 안에 <code>games.json</code>이 있는지 확인해주세요.
+        </strong>
+        <div style="font-size:13px;margin-top:8px;">
+          (오류 상세: ${e.message || '네트워크 연결 오류'})
         </div>
+      </div>
     `;
-    return;
-  }
+    console.error(e);
+    return;
+  }
 
-  const card = (g) => `
-    <article class="card">
-      ${g.thumb ? `<img class="thumb" src="${g.thumb}" alt="">`
-                 : `<div class="thumb">No Thumbnail</div>`}
-      <div class="meta">
-        <h3 class="title">${g.title}</h3>
-        <p class="desc">${g.desc||''}</p>
-      </div>
-      <a class="btn" href="${g.url}" target="_blank" rel="noopener">실행하기</a>
-    </article>
-  `;
+  const card = (g) => `
+    <article class="card">
+      ${g.thumb
+        ? `<img class="thumb" src="${g.thumb}" alt="">`
+        : `<div class="thumb">No Thumbnail</div>`}
+      <div class="meta">
+        <h3 class="title">${g.title}</h3>
+        <p class="desc">${g.desc || ''}</p>
+      </div>
+      <a class="btn" href="${g.url}" target="_blank" rel="noopener">실행하기</a>
+    </article>
+  `;
 
-  const render = (list) => {
-    grid.innerHTML = list.map(card).join('') || '<div style="color:#9aa3c7">검색 결과가 없습니다.</div>';
-  };
+  const render = (list) => {
+    grid.innerHTML =
+      list.map(card).join('') ||
+      '<div style="color:#9aa3c7">검색 결과가 없습니다.</div>';
+  };
 
-  const filter = (text) => {
-    const t = text.trim().toLowerCase();
-    if(!t) return games;
-    return games.filter(g => (g.title+' '+(g.desc||'')+' '+(g.tags||[]).join(' ')).toLowerCase().includes(t));
-  };
+  const filter = (text) => {
+    const t = text.trim().toLowerCase();
+    if (!t) return games;
+    return games.filter(g =>
+      (g.title + ' ' + (g.desc || '') + ' ' + (g.tags || []).join(' '))
+        .toLowerCase()
+        .includes(t)
+    );
+  };
 
-  q.addEventListener('input', e => render(filter(e.target.value)));
-  render(games);
+  q.addEventListener('input', e => render(filter(e.target.value)));
+  render(games);
 })();
 </script>
 </body>
