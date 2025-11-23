@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>고누</title>
+<style>
+  :root{
+    --bg:#070a16; --panel:#11152b; --ink:#e9edff; --muted:#9aa3c7; --accent:#7aa2ff;
+    --panel2:#0b0f1e;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font-size:22px;margin:0}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{
+    padding:7px 11px;
+    border:1px solid #2a315e;
+    border-radius:12px;
+    background:#1b2145;
+    color:var(--ink);
+    cursor:pointer;
+    font-size:14px;
+  }
+  .btn-primary{
+    background:linear-gradient(180deg,#2e4cff,#2337a7);
+    border-color:#3a50ff;
+  }
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .tag{
+    display:inline-flex;gap:8px;align-items:center;
+    padding:6px 10px;border:1px solid #2b325c;
+    border-radius:999px;background:#121632;color:var(--muted);
+  }
+  .panel{
+    background:var(--panel2);
+    border:1px solid #222747;
+    border-radius:16px;
+    padding:12px;
+  }
+  canvas{
+    width:100%;height:auto;max-width:640px;
+    display:block;margin:0 auto;
+    border-radius:12px;
+    background:radial-gradient(900px 450px at 50% -200px,#151a3e 10%,#050712 60%,#020309 100%);
+  }
+  label{font-size:14px;color:var(--muted)}
+  select{
+    padding:5px 8px;
+    border-radius:10px;
+    border:1px solid #2b325c;
+    background:#10142c;
+    color:var(--ink);
+    font-size:14px;
+  }
+  .info{font-size:14px;color:#9aa3c7;margin-top:6px}
+  .pill{
+    padding:4px 10px;border-radius:999px;
+    border:1px solid #374151;
+    background:#030711;font-size:13px;color:#cbd5f5;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="title-main">우물고누 / 호박고누</h1>
+    <div class="row">
+      <button id="btn-new" class="btn btn-primary">새 게임</button>
+      <button id="btn-undo" class="btn">되돌리기</button>
+    </div>
+  </header>
+
+  <div class="row" style="margin-top:10px;margin-bottom:8px">
+    <span class="tag">현재 판 <b id="board-label">우물고누 (말 2개)</b></span>
+    <span class="tag">턴 <b id="turn-label">흑(아래)</b></span>
+    <span class="tag">상태 <b id="status-label">게임 준비</b></span>
+  </div>
+
+  <div class="row" style="margin-bottom:8px">
+    <label>판 선택&nbsp;
+      <select id="sel-mode">
+        <option value="woomul">우물고누 (말 2개)</option>
+        <option value="hobak">호박고누 (말 3개)</option>
+      </select>
+    </label>
+    <label>대전 방식&nbsp;
+      <select id="sel-ai">
+        <option value="none">사람 vs 사람</option>
+        <option value="easy">AI 초보 (느긋)</option>
+        <option value="normal">AI 중수</option>
+        <option value="hard">AI 고수</option>
+      </select>
+    </label>
+    <span class="pill">검은 돌: 아래쪽 / 흰 돌: 위쪽</span>
+  </div>
+
+  <div class="panel">
+    <canvas id="board" width="640" height="640" aria-label="우물고누 / 호박고누 보드"></canvas>
+    <div class="info">
+      말을 클릭하여 선택한 뒤, 선으로 연결된 지점을 클릭하면 이동합니다.<br>
+      상대 말을 움직일 수 없게 막으면 승리합니다. 되돌리기로 바로 전 수를 취소할 수 있어요.
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const CV = document.getElementById('board');
+  const CTX = CV.getContext('2d');
+
+  const boardLabel = document.getElementById('board-label');
+  const turnLabel  = document.getElementById('turn-label');
+  const statusLabel= document.getElementById('status-label');
+  const selMode    = document.getElementById('sel-mode');
+  const selAI      = document.getElementById('sel-ai');
+  const btnNew     = document.getElementById('btn-new');
+  const btnUndo    = document.getElementById('btn-undo');
+
+  const CENTER = {x:320,y:320};
+  const R_NODE = 10;
+
+  function polar(angleRad, radius){
+    return {
+      x: CENTER.x + Math.cos(angleRad)*radius,
+      y: CENTER.y + Math.sin(angleRad)*radius
+    };
+  }
+
+  const BOARD_DEFS = {
+    // 우물고누 : 반원 + 십자 (실제 사용점 5개)
+    woomul:{
+      name:'우물고누',
+      piecesPerSide:2,
+      nodes:(()=>{
+        const r = 170;
+        const top    = polar(-Math.PI/2,r);
+        const right  = polar(0,r);
+        const center = {x:CENTER.x,y:CENTER.y};
+        const bottom = polar(Math.PI/2,r);
+        const left   = polar(Math.PI,r);
+        // 0:top 1:right 2:center 3:bottom 4:left
+        return [top,right,center,bottom,left];
+      })(),
+      neighbors:[
+        [2,4,1],   // 0 top
+        [0,2],     // 1 right
+        [0,1,3,4], // 2 center
+        [2,4],     // 3 bottom
+        [0,2,3]    // 4 left
+      ]
+    },
+    // 호박고누 : 위/아래 가로선 + 원 + 십자 + 세로선
+    hobak:{
+      name:'호박고누',
+      piecesPerSide:3,
+      nodes:(()=>{
+        const nodes = [];
+        const r = 170;
+        const topY = CENTER.y - r - 60;
+        const botY = CENTER.y + r + 60;
+        const campX = 140;
+        // 0,1,2 : 위 가로선 왼/중/오
+        nodes.push({x:CENTER.x-campX,y:topY}); //0
+        nodes.push({x:CENTER.x,y:topY});       //1
+        nodes.push({x:CENTER.x+campX,y:topY}); //2
+        // 3,4,5,6 : 원 네 방향
+        nodes.push(polar(-Math.PI/2,r));       //3 top circle
+        nodes.push(polar(0,r));                //4 right
+        nodes.push(polar(Math.PI/2,r));        //5 bottom
+        nodes.push(polar(Math.PI,r));          //6 left
+        // 7,8,9 : 아래 가로선 왼/중/오
+        nodes.push({x:CENTER.x-campX,y:botY}); //7
+        nodes.push({x:CENTER.x,y:botY});       //8
+        nodes.push({x:CENTER.x+campX,y:botY}); //9
+        // 10 : 원 중앙
+        nodes.push({x:CENTER.x,y:CENTER.y});   //10
+        return nodes;
+      })(),
+      // 인접 리스트 (실제 선)
+      neighbors:[
+        [1],           //0 A
+        [0,2,3],       //1 B
+        [1],           //2 C
+        [1,10,4,6],    //3 D
+        [3,5,10],      //4 E
+        [4,6,10,8],    //5 F
+        [5,3,10],      //6 G
+        [8],           //7 H
+        [7,9,5],       //8 I
+        [8],           //9 J
+        [3,4,5,6]      //10 K
+      ],
+      campTop:[0,1,2],
+      campBottom:[7,8,9]
+    }
+  };
+
+  // --- 게임 상태 ---
+  const S = {
+    boardType:'woomul',   // 'woomul' or 'hobak'
+    aiLevel:'none',       // 'none','easy','normal','hard'
+    turn:0,               // 0: 흑(아래), 1: 백(위)
+    pieces:[[],[]],       // 각 플레이어 말 정보 {node,leftCamp?}
+    selected:null,        // {player,index}
+    history:[],           // 스냅샷 스택
+    gameOver:false,
+    winner:null,
+    moveCount:0
+  };
+
+  function clonePieces(pieces){
+    return pieces.map(arr=>arr.map(p=>({node:p.node,leftCamp:p.leftCamp||false})));
+  }
+
+  function snapshot(){
+    return {
+      boardType:S.boardType,
+      aiLevel:S.aiLevel,
+      turn:S.turn,
+      pieces:clonePieces(S.pieces),
+      gameOver:S.gameOver,
+      winner:S.winner,
+      moveCount:S.moveCount
+    };
+  }
+
+  function loadSnapshot(snap){
+    S.boardType = snap.boardType;
+    S.aiLevel   = snap.aiLevel;
+    S.turn      = snap.turn;
+    S.pieces    = clonePieces(snap.pieces);
+    S.selected  = null;
+    S.gameOver  = snap.gameOver;
+    S.winner    = snap.winner;
+    S.moveCount = snap.moveCount;
+    updateTexts();
+    draw();
+  }
+
+  // --- 캠프 유틸 ---
+  function isCampTop(node){
+    const def=BOARD_DEFS.hobak;
+    return def.campTop.includes(node);
+  }
+  function isCampBottom(node){
+    const def=BOARD_DEFS.hobak;
+    return def.campBottom.includes(node);
+  }
+  function isCamp(node){
+    const def=BOARD_DEFS.hobak;
+    return def.campTop.includes(node) || def.campBottom.includes(node);
+  }
+
+  // --- 새 게임 ---
+  function newGame(){
+    S.boardType = selMode.value;
+    S.aiLevel   = selAI.value;
+    S.turn = 0;
+    S.selected=null;
+    S.gameOver=false;
+    S.winner=null;
+    S.history=[];
+    S.moveCount=0;
+
+    const def = BOARD_DEFS[S.boardType];
+    S.pieces = [[],[]];
+
+    if(S.boardType==='woomul'){
+      // 5점 중 4점만 사용. 중앙은 비워두고 시작.
+      // 흑(아래) : bottom(3), right(1)
+      // 백(위)   : top(0),    left(4)
+      S.pieces[0].push({node:3});
+      S.pieces[0].push({node:1});
+      S.pieces[1].push({node:0});
+      S.pieces[1].push({node:4});
+    }else{
+      // 호박고누 – 위/아래 가로선 3점
+      // 흑(아래) : 7,8,9 / 백(위) : 0,1,2
+      S.pieces[0].push({node:7,leftCamp:false});
+      S.pieces[0].push({node:8,leftCamp:false});
+      S.pieces[0].push({node:9,leftCamp:false});
+
+      S.pieces[1].push({node:0,leftCamp:false});
+      S.pieces[1].push({node:1,leftCamp:false});
+      S.pieces[1].push({node:2,leftCamp:false});
+    }
+
+    updateTexts();
+    draw();
+  }
+
+  // --- 좌표/노드 & 말 찾기 ---
+  function nodeAtPos(x,y){
+    const def = BOARD_DEFS[S.boardType];
+    let best=-1, bestD=Infinity;
+    for(let i=0;i<def.nodes.length;i++){
+      const n=def.nodes[i];
+      const dx=x-n.x, dy=y-n.y;
+      const d=dx*dx+dy*dy;
+      if(d<bestD){
+        bestD=d;best=i;
+      }
+    }
+    if(Math.sqrt(bestD)<=24) return best;
+    return -1;
+  }
+  function pieceAtNode(player,node){
+    const arr=S.pieces[player];
+    for(let i=0;i<arr.length;i++){
+      if(arr[i].node===node) return i;
+    }
+    return -1;
+  }
+  function pieceAtNodeState(state,player,node){
+    const arr=state.pieces[player];
+    for(let i=0;i<arr.length;i++){
+      if(arr[i].node===node) return i;
+    }
+    return -1;
+  }
+
+  // --- 합법 수 판정 (버그 수정된 부분) ---
+  function canMovePiece(state,player,pIndex,toNode){
+    const def = BOARD_DEFS[state.boardType];
+    const piece = state.pieces[player][pIndex];
+    const from = piece.node;
+
+    if(from===toNode) return false;
+    // 선으로 연결된 이웃이어야 함
+    if(def.neighbors[from].indexOf(toNode)===-1) return false;
+
+    // 목적지는 비어 있어야 함
+    if(pieceAtNodeState(state,0,toNode)!==-1) return false;
+    if(pieceAtNodeState(state,1,toNode)!==-1) return false;
+
+    if(state.boardType==='hobak'){
+      const fromInCamp = isCamp(from);
+      const toInCamp   = isCamp(toNode);
+      const leftCamp   = !!piece.leftCamp;
+
+      if(leftCamp){
+        // 이미 진영을 한 번 떠난 말 → 어떤 진영에도 재입장 불가
+        if(toInCamp) return false;
+      }else{
+        // 아직 진영을 떠난 적 없는 말
+        // ① 캠프 안 ↔ 캠프 안 이동 허용 (0-1-2, 7-8-9 사이)
+        // ② 캠프 → 원/다른 노드 이동 허용 (이동 후 applyMoveInPlace에서 leftCamp=true)
+        // 여기서는 추가 제한 없음
+      }
+    }
+    // 우물고누는 인접/빈칸만 체크
+    return true;
+  }
+
+  function neighborsOf(boardType,node){
+    return BOARD_DEFS[boardType].neighbors[node] || [];
+  }
+
+  // --- 가능한 수 생성 ---
+  function generateMoves(state, player){
+    if(state.gameOver) return [];
+    const def = BOARD_DEFS[state.boardType];
+    const moves=[];
+    const arr = state.pieces[player];
+
+    for(let i=0;i<arr.length;i++){
+      const from = arr[i].node;
+      for(const to of def.neighbors[from]){
+        if(canMovePiece(state,player,i,to)){
+          moves.push({piece:i,from,to});
+        }
+      }
+    }
+    return moves;
+  }
+
+  // --- 수 적용 ---
+  function applyMoveInPlace(state, player, move){
+    const piece = state.pieces[player][move.piece];
+    const from = piece.node;
+    const to   = move.to;
+
+    if(state.boardType==='hobak'){
+      if(!piece.leftCamp){
+        const fromInCamp = isCamp(from);
+        const toInCamp   = isCamp(to);
+        // 진영에서 처음으로 밖으로 나가는 순간
+        if(fromInCamp && !toInCamp){
+          piece.leftCamp = true;
+        }
+      }
+    }
+    piece.node = to;
+
+    state.turn = 1-player;
+    state.moveCount++;
+
+    const nextMoves = generateMoves(state, state.turn);
+    if(nextMoves.length===0){
+      state.gameOver = true;
+      state.winner = player;
+    }
+  }
+
+  // --- 평가 & AI ---
+  function evaluateState(state, player){
+    if(state.gameOver){
+      if(state.winner===player) return 100;
+      if(state.winner===1-player) return -100;
+      return 0;
+    }
+    const my  = generateMoves(state, player).length;
+    const opp = generateMoves(state, 1-player).length;
+    return my - opp;
+  }
+
+  function minimax(state, depth, player, maximizing){
+    if(depth===0 || state.gameOver){
+      return {score:evaluateState(state,player)};
+    }
+    const cur = maximizing ? player : 1-player;
+    const moves = generateMoves(state, cur);
+    if(moves.length===0){
+      const score = cur===player ? -100 : 100;
+      return {score};
+    }
+    let bestMove=null;
+    if(maximizing){
+      let best=-Infinity;
+      for(const mv of moves){
+        const ns = {
+          boardType:state.boardType,
+          aiLevel:state.aiLevel,
+          turn:state.turn,
+          pieces:clonePieces(state.pieces),
+          gameOver:state.gameOver,
+          winner:state.winner,
+          moveCount:state.moveCount
+        };
+        applyMoveInPlace(ns, cur, mv);
+        const r = minimax(ns, depth-1, player, !maximizing).score;
+        if(r>best){
+          best=r; bestMove=mv;
+        }
+      }
+      return {score:best, move:bestMove};
+    }else{
+      let best=Infinity;
+      for(const mv of moves){
+        const ns = {
+          boardType:state.boardType,
+          aiLevel:state.aiLevel,
+          turn:state.turn,
+          pieces:clonePieces(state.pieces),
+          gameOver:state.gameOver,
+          winner:state.winner,
+          moveCount:state.moveCount
+        };
+        applyMoveInPlace(ns, cur, mv);
+        const r = minimax(ns, depth-1, player, !maximizing).score;
+        if(r<best){
+          best=r; bestMove=mv;
+        }
+      }
+      return {score:best, move:bestMove};
+    }
+  }
+
+  function aiMove(){
+    if(S.gameOver) return;
+    if(S.aiLevel==='none') return;
+    const player = 1; // AI = 위쪽(백)
+    if(S.turn!==player) return;
+
+    const moves = generateMoves(S, player);
+    if(moves.length===0) return;
+
+    let chosen;
+    if(S.aiLevel==='easy'){
+      chosen = moves[Math.floor(Math.random()*moves.length)];
+    }else if(S.aiLevel==='normal'){
+      let best=-Infinity;
+      for(const mv of moves){
+        const ns = snapshot();
+        applyMoveInPlace(ns, player, mv);
+        const oppMoves = generateMoves(ns, 1-player).length;
+        const score = -oppMoves + Math.random()*0.1;
+        if(score>best){
+          best=score; chosen=mv;
+        }
+      }
+    }else{
+      const res = minimax(snapshot(), 3, player, true);
+      chosen = res.move || moves[Math.floor(Math.random()*moves.length)];
+    }
+
+    S.history.push(snapshot());
+    applyMoveInPlace(S, player, chosen);
+    updateTexts();
+    draw();
+  }
+
+  // --- 입력 처리 ---
+  function handleClick(ev){
+    const rect = CV.getBoundingClientRect();
+    const scaleX = CV.width / rect.width;
+    const scaleY = CV.height / rect.height;
+    const x = (ev.clientX - rect.left) * scaleX;
+    const y = (ev.clientY - rect.top) * scaleY;
+    const node = nodeAtPos(x,y);
+    if(node===-1) return;
+    if(S.gameOver) return;
+
+    const player = S.turn;
+
+    // AI 차례엔 입력 무시
+    if(S.aiLevel!=='none' && player===1){
+      return;
+    }
+
+    const myPieces = S.pieces[player];
+
+    if(!S.selected){
+      const idx = pieceAtNode(player,node);
+      if(idx!==-1){
+        S.selected = {player,index:idx};
+        draw();
+      }
+      return;
+    }
+
+    // 이미 선택된 말이 있고 같은 색이면 선택만 변경
+    if(S.selected.player===player){
+      const idx = pieceAtNode(player,node);
+      if(idx!==-1){
+        S.selected = {player,index:idx};
+        draw();
+        return;
+      }
+    }
+
+    // 이동 시도
+    const sel = S.selected;
+    if(sel.player!==player) return;
+    if(!canMovePiece(S, player, sel.index, node)) return;
+
+    S.history.push(snapshot());
+    applyMoveInPlace(S, player, {piece:sel.index,from:S.pieces[player][sel.index].node,to:node});
+    S.selected=null;
+    updateTexts();
+    draw();
+
+    if(S.gameOver) return;
+
+    if(S.turn===1 && S.aiLevel!=='none'){
+      setTimeout(aiMove, 200);
+    }
+  }
+
+  CV.addEventListener('click', handleClick);
+
+  // --- 되돌리기 ---
+  btnUndo.addEventListener('click', ()=>{
+    if(!S.history.length) return;
+    const snap = S.history.pop();
+    loadSnapshot(snap);
+  });
+
+  // --- 새게임 / 옵션 변경 ---
+  btnNew.addEventListener('click', newGame);
+  selMode.addEventListener('change', newGame);
+  selAI.addEventListener('change', ()=>{
+    S.aiLevel = selAI.value;
+    updateTexts();
+  });
+
+  // --- 그리기 ---
+  function drawBoardWoomul(def){
+    CTX.save();
+    CTX.strokeStyle='#f9fafb';
+    CTX.lineWidth=6;
+    CTX.lineCap='round';
+
+    const r=170;
+    const {x:cx,y:cy}=CENTER;
+
+    // 반원 아크 (오른쪽 아래 1/4은 비워둠 느낌)
+    CTX.beginPath();
+    CTX.arc(cx,cy,r,Math.PI*0.5,Math.PI*1.5,false); // 왼쪽 반원
+    CTX.stroke();
+
+    CTX.beginPath();
+    CTX.arc(cx,cy,r,-Math.PI*0.5,0,false);          // 오른쪽 위 1/4
+    CTX.stroke();
+
+    // 십자선
+    CTX.beginPath();
+    CTX.moveTo(cx,cy-r);
+    CTX.lineTo(cx,cy+r);
+    CTX.moveTo(cx-r,cy);
+    CTX.lineTo(cx+r,cy);
+    CTX.stroke();
+
+    CTX.restore();
+  }
+
+  function drawBoardHobak(def){
+    CTX.save();
+    CTX.strokeStyle='#f9fafb';
+    CTX.lineWidth=6;
+    CTX.lineCap='round';
+
+    const r=170;
+    const {x:cx,y:cy}=CENTER;
+    const topY = def.nodes[0].y;
+    const botY = def.nodes[7].y;
+    const leftX = def.nodes[0].x;
+    const rightX= def.nodes[2].x;
+
+    // 위/아래 가로선
+    CTX.beginPath();
+    CTX.moveTo(leftX, topY);
+    CTX.lineTo(rightX, topY);
+    CTX.moveTo(leftX, botY);
+    CTX.lineTo(rightX, botY);
+    CTX.stroke();
+
+    // 가운데 세로선
+    CTX.beginPath();
+    CTX.moveTo(cx, topY);
+    CTX.lineTo(cx, botY);
+    CTX.stroke();
+
+    // 원
+    CTX.beginPath();
+    CTX.arc(cx,cy,r,0,Math.PI*2);
+    CTX.stroke();
+
+    // 원 안 십자
+    CTX.beginPath();
+    CTX.moveTo(cx-r,cy);
+    CTX.lineTo(cx+r,cy);
+    CTX.moveTo(cx,cy-r);
+    CTX.lineTo(cx,cy+r);
+    CTX.stroke();
+
+    CTX.restore();
+  }
+
+  function drawNodes(def){
+    CTX.save();
+    for(let i=0;i<def.nodes.length;i++){
+      const n=def.nodes[i];
+      CTX.beginPath();
+      CTX.arc(n.x,n.y,4,0,Math.PI*2);
+      CTX.fillStyle='rgba(209,213,219,0.6)';
+      CTX.fill();
+    }
+    CTX.restore();
+  }
+
+  function drawPieces(def){
+    function drawStone(nodeIdx,player,highlight){
+      const n = def.nodes[nodeIdx];
+      CTX.save();
+      let baseColor = player===0 ? '#111827' : '#e5e7eb';
+      let edgeColor = player===0 ? '#9ca3af' : '#111827';
+      if(highlight){
+        CTX.shadowColor='#facc15';
+        CTX.shadowBlur=18;
+      }else{
+        CTX.shadowBlur=0;
+      }
+      const r = 18;
+      const gr = CTX.createRadialGradient(n.x-4,n.y-6,4,n.x,n.y,r+4);
+      if(player===0){
+        gr.addColorStop(0,'#6b7280');
+        gr.addColorStop(0.4,baseColor);
+        gr.addColorStop(1,'#020617');
+      }else{
+        gr.addColorStop(0,'#f9fafb');
+        gr.addColorStop(0.4,baseColor);
+        gr.addColorStop(1,'#9ca3af');
+      }
+      CTX.fillStyle=gr;
+      CTX.beginPath();
+      CTX.arc(n.x,n.y,r,0,Math.PI*2);
+      CTX.fill();
+      CTX.lineWidth=2;
+      CTX.strokeStyle=edgeColor;
+      CTX.stroke();
+      CTX.restore();
+    }
+
+    for(let p=0;p<2;p++){
+      const arr=S.pieces[p];
+      for(let i=0;i<arr.length;i++){
+        const isSel = S.selected && S.selected.player===p && S.selected.index===i;
+        drawStone(arr[i].node,p,isSel);
+      }
+    }
+  }
+
+  function draw(){
+    CTX.clearRect(0,0,CV.width,CV.height);
+
+    // 배경
+    CTX.fillStyle='#020617';
+    CTX.fillRect(0,0,CV.width,CV.height);
+
+    const def = BOARD_DEFS[S.boardType];
+
+    const g = CTX.createRadialGradient(CENTER.x,CENTER.y,0,CENTER.x,CENTER.y,260);
+    g.addColorStop(0,'rgba(37,99,235,0.35)');
+    g.addColorStop(0.6,'rgba(15,23,42,0.9)');
+    g.addColorStop(1,'rgba(2,6,23,1)');
+    CTX.fillStyle=g;
+    CTX.fillRect(0,0,CV.width,CV.height);
+
+    if(S.boardType==='woomul') drawBoardWoomul(def);
+    else drawBoardHobak(def);
+
+    drawNodes(def);
+    drawPieces(def);
+
+    if(S.gameOver){
+      CTX.save();
+      CTX.fillStyle='rgba(0,0,0,0.55)';
+      CTX.fillRect(0,0,CV.width,CV.height);
+      CTX.fillStyle='#e5e7eb';
+      CTX.font='bold 32px system-ui';
+      const msg = (S.winner===0?'흑(아래) 승리!':'백(위) 승리!');
+      const w = CTX.measureText(msg).width;
+      CTX.fillText(msg, (CV.width-w)/2, CENTER.y);
+      CTX.restore();
+    }
+  }
+
+  function updateTexts(){
+    boardLabel.textContent = S.boardType==='woomul'
+      ? '우물고누 (말 2개)'
+      : '호박고누 (말 3개)';
+
+    turnLabel.textContent = S.turn===0 ? '흑(아래)' : '백(위)';
+
+    if(S.gameOver){
+      statusLabel.textContent = (S.winner===0?'흑(아래) 승리!':'백(위) 승리!');
+    }else{
+      const ai = S.aiLevel;
+      let modeText;
+      if(ai==='none') modeText='사람 vs 사람';
+      else if(ai==='easy') modeText='사람 vs AI 초보';
+      else if(ai==='normal') modeText='사람 vs AI 중수';
+      else modeText='사람 vs AI 고수';
+      statusLabel.textContent = modeText;
+    }
+  }
+
+  // --- 시작! ---
+  newGame();
+})();
+</script>
+</body>
+</html>
