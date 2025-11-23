@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>하노이의 탑</title>
+<style>
+  :root{
+    --bg:#070a16; --panel:#11152b; --ink:#e9edff; --muted:#9aa3c7; --accent:#7aa2ff;
+    --panel2:#0b0f1e;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font-size:22px;margin:0}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{
+    padding:7px 11px;
+    border:1px solid #2a315e;
+    border-radius:12px;
+    background:#1b2145;
+    color:var(--ink);
+    cursor:pointer;
+    font-size:14px;
+  }
+  .btn-primary{
+    background:linear-gradient(180deg,#2e4cff,#2337a7);
+    border-color:#3a50ff;
+  }
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .tag{
+    display:inline-flex;gap:8px;align-items:center;
+    padding:6px 10px;border:1px solid #2b325c;
+    border-radius:999px;background:#121632;color:var(--muted);
+  }
+  .panel{
+    background:var(--panel2);
+    border:1px solid #222747;
+    border-radius:16px;
+    padding:12px;
+  }
+  canvas{
+    width:100%;height:auto;max-width:640px;
+    display:block;margin:0 auto;
+    border-radius:12px;
+    background:radial-gradient(900px 450px at 50% -200px,#151a3e 10%,#050712 60%,#020309 100%);
+    cursor:pointer;
+  }
+  label{font-size:14px;color:var(--muted)}
+  select{
+    padding:5px 8px;
+    border-radius:10px;
+    border:1px solid #2b325c;
+    background:#10142c;
+    color:var(--ink);
+    font-size:14px;
+  }
+  .info{font-size:14px;color:#9aa3c7;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>하노이의 탑</h1>
+    <div class="row">
+      <button id="btn-new" class="btn btn-primary">새 게임</button>
+      <button id="btn-undo" class="btn">되돌리기</button>
+    </div>
+  </header>
+
+  <div class="row" style="margin-top:10px;margin-bottom:8px">
+    <span class="tag">원판 수
+      <select id="sel-disks">
+        <option value="3">3개</option>
+        <option value="4" selected>4개</option>
+        <option value="5">5개</option>
+        <option value="6">6개</option>
+        <option value="7">7개</option>
+        <option value="8">8개</option>
+      </select>
+    </span>
+    <span class="tag">이동 수 <b id="moves-label">0</b></span>
+    <span class="tag">최소 이동 <b id="best-label">0</b></span>
+    <span class="tag">상태 <b id="status-label">게임 준비</b></span>
+  </div>
+
+  <div class="panel">
+    <canvas id="board" width="640" height="360" aria-label="하노이의 탑 보드"></canvas>
+    <div class="info">
+      기둥을 클릭하여 <b>출발 기둥</b>을 선택하고, 다시 다른 기둥을 클릭하여 <b>도착 기둥</b>으로 옮깁니다.<br>
+      큰 원판 위에 작은 원판만 올릴 수 있습니다. 마지막 기둥에 모든 원판을 옮기면 성공!
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const CV = document.getElementById('board');
+  const CTX = CV.getContext('2d');
+
+  const selDisks   = document.getElementById('sel-disks');
+  const btnNew     = document.getElementById('btn-new');
+  const btnUndo    = document.getElementById('btn-undo');
+  const movesLabel = document.getElementById('moves-label');
+  const bestLabel  = document.getElementById('best-label');
+  const statusLabel= document.getElementById('status-label');
+
+  let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  function resizeCanvas(){
+    const rect = CV.getBoundingClientRect();
+    const cssW = Math.min(rect.width, 640);
+    const cssH = cssW * (360/640);
+    CV.style.height = cssH + 'px';
+    CV.width  = Math.floor(cssW * DPR);
+    CV.height = Math.floor(cssH * DPR);
+    CTX.setTransform(DPR,0,0,DPR,0,0);
+    draw();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  const S = {
+    diskCount:4,
+    towers:[[],[],[]], // 각 기둥: [큰, ..., 작은] (배열 끝이 맨 위)
+    selectedPeg:null,
+    moves:0,
+    minMoves:0,
+    history:[],
+    gameOver:false
+  };
+
+  function cloneTowers(t){
+    return t.map(col => col.slice());
+  }
+
+  function snapshot(){
+    return {
+      diskCount:S.diskCount,
+      towers:cloneTowers(S.towers),
+      selectedPeg:S.selectedPeg,
+      moves:S.moves,
+      minMoves:S.minMoves,
+      gameOver:S.gameOver
+    };
+  }
+
+  function loadSnapshot(snap){
+    S.diskCount = snap.diskCount;
+    S.towers    = cloneTowers(snap.towers);
+    S.selectedPeg = snap.selectedPeg;
+    S.moves     = snap.moves;
+    S.minMoves  = snap.minMoves;
+    S.gameOver  = snap.gameOver;
+    updateHUD();
+    draw();
+  }
+
+  function initGame(count){
+    S.diskCount = count;
+    S.towers = [[],[],[]];
+    // 0번 기둥: 큰 원판이 아래, 작은 원판이 위
+    for(let i=count;i>=1;i--){
+      S.towers[0].push(i);
+    }
+    S.selectedPeg = null;
+    S.moves = 0;
+    S.minMoves = Math.pow(2,count) - 1;
+    S.history = [];
+    S.gameOver = false;
+    statusLabel.textContent = '게임 시작: 오른쪽 기둥으로 모두 옮겨보세요';
+    updateHUD();
+    draw();
+  }
+
+  function updateHUD(){
+    movesLabel.textContent = S.moves;
+    bestLabel.textContent  = S.minMoves;
+    if(S.gameOver){
+      statusLabel.textContent = '완료! 새 게임 버튼으로 다시 시작';
+    }
+  }
+
+  // --- 입력 처리 ---
+  function pegFromPos(x){
+    const w = CV.width / DPR;
+    const third = w / 3;
+    if(x < third) return 0;
+    if(x < 2*third) return 1;
+    return 2;
+  }
+
+  function handleClick(ev){
+    const rect = CV.getBoundingClientRect();
+    const scaleX = CV.width / rect.width;
+    const x = (ev.clientX - rect.left) * scaleX / DPR;
+    const peg = pegFromPos(x);
+    onPegClick(peg);
+  }
+
+  function onPegClick(peg){
+    if(S.gameOver) return;
+
+    const tower = S.towers[peg];
+    if(S.selectedPeg === null){
+      if(tower.length === 0){
+        statusLabel.textContent = '옮길 원판이 있는 기둥을 먼저 선택하세요';
+        draw();
+        return;
+      }
+      S.selectedPeg = peg;
+      statusLabel.textContent = '도착 기둥을 선택하세요';
+      draw();
+      return;
+    }
+
+    // 같은 기둥 다시 클릭 → 선택 해제
+    if(S.selectedPeg === peg){
+      S.selectedPeg = null;
+      statusLabel.textContent = '출발 기둥을 선택하세요';
+      draw();
+      return;
+    }
+
+    const from = S.selectedPeg;
+    const to   = peg;
+    const fromTower = S.towers[from];
+    const toTower   = S.towers[to];
+    if(fromTower.length === 0){
+      S.selectedPeg = null;
+      statusLabel.textContent = '옮길 원판이 없습니다';
+      draw();
+      return;
+    }
+    const disk = fromTower[fromTower.length-1];
+    const topTo = toTower[toTower.length-1];
+    if(topTo !== undefined && topTo < disk){
+      statusLabel.textContent = '큰 원판 위에 작은 원판만 올릴 수 있어요';
+      S.selectedPeg = null;
+      draw();
+      return;
+    }
+
+    // 되돌리기용 스냅샷
+    S.history.push(snapshot());
+
+    fromTower.pop();
+    toTower.push(disk);
+    S.moves++;
+    S.selectedPeg = null;
+
+    if(S.towers[2].length === S.diskCount){
+      S.gameOver = true;
+      statusLabel.textContent =
+        `축하합니다! ${S.moves}번 만에 성공 (최소 ${S.minMoves}번)`;
+    }else{
+      statusLabel.textContent = '출발 기둥을 선택하세요';
+    }
+    updateHUD();
+    draw();
+  }
+
+  CV.addEventListener('click', handleClick);
+
+  // --- 되돌리기 ---
+  btnUndo.addEventListener('click', ()=>{
+    if(!S.history.length) return;
+    const snap = S.history.pop();
+    loadSnapshot(snap);
+  });
+
+  // --- 새 게임 / 디스크 선택 ---
+  btnNew.addEventListener('click', ()=>{
+    const n = Number(selDisks.value);
+    initGame(n);
+  });
+
+  selDisks.addEventListener('change', ()=>{
+    const n = Number(selDisks.value);
+    initGame(n);
+  });
+
+  // 색상 그라디언트용
+  function diskColor(size){
+    const t = (size-1)/(S.diskCount-1||1);
+    const hueBlue = 210;
+    const hueRed  = 340;
+    const hue = hueBlue + (hueRed-hueBlue)*t;
+    return {hue, t};
+  }
+
+  // --- 그리기 ---
+  function draw(){
+    const w = CV.width / DPR;
+    const h = CV.height / DPR;
+
+    CTX.clearRect(0,0,w,h);
+
+    // 배경
+    const bgGrad = CTX.createRadialGradient(w/2,h*0.15,0,w/2,h*0.9,w*0.9);
+    bgGrad.addColorStop(0,'#020617');
+    bgGrad.addColorStop(0.45,'#020617');
+    bgGrad.addColorStop(1,'#000000');
+    CTX.fillStyle = bgGrad;
+    CTX.fillRect(0,0,w,h);
+
+    const baseY   = h - 38;   // 바닥 위치
+    const pegTopY = 64;       // 기둥 맨 위
+    const pegWidth = 12;
+
+    // 기둥 x 위치 (좌/중/우)
+    const pegX = [
+      w*0.2,
+      w*0.5,
+      w*0.8
+    ];
+
+    // --- 바닥(입체) ---
+    const baseHeight = 14;
+    const baseTop = baseY;
+    const baseFront = baseY + 4;
+
+    // 윗면
+    const padLeft  = w*0.06;
+    const padRight = w*0.94;
+    CTX.fillStyle = '#020617';
+    CTX.fillRect(padLeft, baseTop, padRight-padLeft, baseHeight);
+
+    // 앞면(살짝 밝게)
+    const frontGrad = CTX.createLinearGradient(0,baseFront,0,baseFront+10);
+    frontGrad.addColorStop(0,'#020617');
+    frontGrad.addColorStop(1,'#0b1220');
+    CTX.fillStyle = frontGrad;
+    CTX.fillRect(padLeft, baseFront, padRight-padLeft, 10);
+
+    // 윗선 하이라이트
+    CTX.strokeStyle = 'rgba(148,163,184,0.45)';
+    CTX.lineWidth = 1;
+    CTX.beginPath();
+    CTX.moveTo(padLeft, baseTop+0.5);
+    CTX.lineTo(padRight, baseTop+0.5);
+    CTX.stroke();
+
+    // 기둥별 바닥 그림자
+    for(let i=0;i<3;i++){
+      const x = pegX[i];
+      CTX.save();
+      CTX.globalAlpha = 0.35;
+      CTX.fillStyle = 'rgba(15,23,42,0.9)';
+      CTX.beginPath();
+      CTX.ellipse(x, baseTop+baseHeight/2+2, w*0.08, 6, 0, 0, Math.PI*2);
+      CTX.fill();
+      CTX.restore();
+    }
+
+    // 선택된 기둥 배경
+    if(S.selectedPeg !== null){
+      const px = pegX[S.selectedPeg];
+      CTX.fillStyle = 'rgba(250,204,21,0.14)';
+      CTX.fillRect(px - w*0.12, pegTopY-16, w*0.24, baseTop-pegTopY+28);
+    }
+
+    // --- 기둥(입체) ---
+    for(let i=0;i<3;i++){
+      const x = pegX[i];
+
+      const grad = CTX.createLinearGradient(x-pegWidth/2,pegTopY,x+pegWidth/2,baseTop);
+      grad.addColorStop(0,'#f9fafb');
+      grad.addColorStop(0.4,'#e5e7eb');
+      grad.addColorStop(0.7,'#cbd5f5');
+      grad.addColorStop(1,'#9ca3af');
+
+      CTX.fillStyle = grad;
+      const height = baseTop-pegTopY;
+      CTX.beginPath();
+      const r = 4;
+      CTX.moveTo(x-pegWidth/2+r, pegTopY);
+      CTX.lineTo(x+pegWidth/2-r, pegTopY);
+      CTX.quadraticCurveTo(x+pegWidth/2, pegTopY, x+pegWidth/2, pegTopY+r);
+      CTX.lineTo(x+pegWidth/2, pegTopY+height);
+      CTX.lineTo(x-pegWidth/2, pegTopY+height);
+      CTX.lineTo(x-pegWidth/2, pegTopY+r);
+      CTX.quadraticCurveTo(x-pegWidth/2, pegTopY, x-pegWidth/2+r, pegTopY);
+      CTX.closePath();
+      CTX.fill();
+
+      // 왼쪽 가장자리 음영
+      CTX.strokeStyle = 'rgba(15,23,42,0.3)';
+      CTX.lineWidth = 1;
+      CTX.beginPath();
+      CTX.moveTo(x-pegWidth/2+0.5, pegTopY+2);
+      CTX.lineTo(x-pegWidth/2+0.5, pegTopY+height-1);
+      CTX.stroke();
+
+      // 윗 타원 (캡)
+      CTX.save();
+      CTX.fillStyle = '#e5e7eb';
+      CTX.beginPath();
+      CTX.ellipse(x, pegTopY+2, pegWidth*0.55, 4, 0, 0, Math.PI*2);
+      CTX.fill();
+      CTX.restore();
+    }
+
+    // --- 원판들 ---
+    // 폭을 기둥 간격보다 작게
+    const maxR = w*0.12;   // 최대 반폭 → 전체 폭 0.24w
+    const minR = w*0.05;
+    const diskHeight = 20;
+
+    for(let p=0;p<3;p++){
+      const tower = S.towers[p];
+      for(let i=0;i<tower.length;i++){
+        const size = tower[i];
+        const x = pegX[p];
+        const y = baseTop - diskHeight*(i+1) + 2; // 약간 위로
+
+        const {hue,t} = diskColor(size);
+        const halfWidth = minR + (maxR-minR)*t;
+
+        // 그림자 (살짝 오른쪽/아래로)
+        CTX.save();
+        CTX.globalAlpha = 0.4;
+        CTX.fillStyle = 'rgba(15,23,42,0.95)';
+        CTX.beginPath();
+        CTX.ellipse(x+2, y+diskHeight*0.45, halfWidth*0.95, diskHeight*0.55, 0, 0, Math.PI*2);
+        CTX.fill();
+        CTX.restore();
+
+        // 측면 바디
+        const bodyGrad = CTX.createLinearGradient(x, y-diskHeight, x, y+diskHeight);
+        bodyGrad.addColorStop(0, `hsl(${hue}, 90%, 75%)`);
+        bodyGrad.addColorStop(0.35, `hsl(${hue}, 90%, 62%)`);
+        bodyGrad.addColorStop(0.7, `hsl(${hue}, 85%, 52%)`);
+        bodyGrad.addColorStop(1, `hsl(${hue}, 85%, 40%)`);
+
+        CTX.fillStyle = bodyGrad;
+        const r = 9;
+        const hDisk = diskHeight-2;
+
+        CTX.beginPath();
+        CTX.moveTo(x - halfWidth + r, y - hDisk/2);
+        CTX.lineTo(x + halfWidth - r, y - hDisk/2);
+        CTX.quadraticCurveTo(x + halfWidth, y - hDisk/2, x + halfWidth, y - hDisk/2 + r);
+        CTX.lineTo(x + halfWidth, y + hDisk/2 - r);
+        CTX.quadraticCurveTo(x + halfWidth, y + hDisk/2, x + halfWidth - r, y + hDisk/2);
+        CTX.lineTo(x - halfWidth + r, y + hDisk/2);
+        CTX.quadraticCurveTo(x - halfWidth, y + hDisk/2, x - halfWidth, y + hDisk/2 - r);
+        CTX.lineTo(x - halfWidth, y - hDisk/2 + r);
+        CTX.quadraticCurveTo(x - halfWidth, y - hDisk/2, x - halfWidth + r, y - hDisk/2);
+        CTX.closePath();
+        CTX.fill();
+
+        // 가장자리 선
+        CTX.lineWidth = 1.4;
+        CTX.strokeStyle = 'rgba(15,23,42,0.85)';
+        CTX.stroke();
+
+        // 위쪽 하이라이트 라인
+        CTX.save();
+        CTX.strokeStyle = 'rgba(248,250,252,0.75)';
+        CTX.lineWidth = 1.2;
+        CTX.beginPath();
+        const hlY = y - hDisk/4;
+        CTX.moveTo(x - halfWidth + r*0.7, hlY);
+        CTX.quadraticCurveTo(x, hlY-2, x + halfWidth - r*0.7, hlY);
+        CTX.stroke();
+        CTX.restore();
+
+        // 윗 타원 (빛 반사)
+        CTX.save();
+        const topGrad = CTX.createRadialGradient(
+          x - halfWidth*0.2, y - hDisk*0.35, 0,
+          x, y - hDisk*0.35, halfWidth
+        );
+        topGrad.addColorStop(0,'rgba(255,255,255,0.95)');
+        topGrad.addColorStop(0.4,`rgba(255,255,255,0.55)`);
+        topGrad.addColorStop(1,'rgba(255,255,255,0)');
+        CTX.fillStyle = topGrad;
+        CTX.beginPath();
+        CTX.ellipse(x, y - hDisk*0.32, halfWidth*0.9, hDisk*0.35, 0, 0, Math.PI*2);
+        CTX.fill();
+        CTX.restore();
+      }
+    }
+
+    if(S.gameOver){
+      CTX.save();
+      CTX.fillStyle = 'rgba(0,0,0,0.45)';
+      CTX.fillRect(0,0,w,h);
+      CTX.fillStyle = '#e5e7eb';
+      CTX.font = 'bold 26px system-ui';
+      const msg = '완료!';
+      const mW = CTX.measureText(msg).width;
+      CTX.fillText(msg, (w-mW)/2, h*0.45);
+      CTX.restore();
+    }
+  }
+
+  // 시작
+  resizeCanvas();
+  initGame(Number(selDisks.value));
+})();
+</script>
+</body>
+</html>
