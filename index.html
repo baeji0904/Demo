@@ -6,110 +6,265 @@
 <title>Demo_Game</title>
 <style>
   :root{
-    --bg:#0e1220;
+    --bg:#050816;
+    --bg2:#020617;
     --ink:#e9edff;
     --muted:#9aa3c7;
-    --card:#141933;
+    --card:#111827;
+    --accent:#7aa2ff;
   }
 
   *{box-sizing:border-box}
 
   html,body{
     margin:0;
-    background:var(--bg);
+    height:100%;
+    background:radial-gradient(circle at top,#1e293b 0,#020617 55%,#000 100%);
     color:var(--ink);
-    font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto;
+    font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto;
+  }
+
+  body{
+    display:flex;
+    justify-content:center;
+    align-items:stretch;
   }
 
   .wrap{
+    width:100%;
     max-width:1100px;
     margin:0 auto;
-    padding:16px;
+    padding:18px 16px 24px;
   }
 
   header{
     display:flex;
     justify-content:space-between;
     align-items:center;
-    gap:12px;
+    gap:16px;
     flex-wrap:wrap;
+    margin-bottom:12px;
+  }
+
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+
+  .logo-dot{
+    width:30px;
+    height:30px;
+    border-radius:12px;
+    background:linear-gradient(145deg,#4f46e5,#22d3ee);
+    box-shadow:0 0 0 2px rgba(15,23,42,.8),0 6px 18px rgba(15,23,42,.9);
   }
 
   h1{
     margin:0;
-    font-size:22px;
+    font-size:24px;
+    letter-spacing:.03em;
   }
 
-  input{
-    background:#121632;
-    border:1px solid #2b325c;
-    border-radius:10px;
-    color:var(--ink);
-    padding:8px 10px;
+  .subtitle{
+    font-size:13px;
+    color:var(--muted);
+  }
+
+  .search-wrap{
+    position:relative;
     min-width:240px;
+    flex:1 1 220px;
+    max-width:320px;
+  }
+
+  .search-wrap input{
+    width:100%;
+    background:#020617;
+    border:1px solid #1f2937;
+    border-radius:999px;
+    color:var(--ink);
+    padding:9px 34px 9px 32px;
+    font-size:14px;
+    outline:none;
+    box-shadow:0 0 0 1px rgba(15,23,42,.6),0 12px 28px rgba(15,23,42,.9);
+    transition:border-color .18s, box-shadow .18s, background-color .18s;
+  }
+
+  .search-wrap input::placeholder{
+    color:#6b7280;
+  }
+
+  .search-wrap input:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 0 1px rgba(129,140,248,.9),0 12px 30px rgba(15,23,42,.95);
+    background:#020617;
+  }
+
+  .search-icon{
+    position:absolute;
+    left:10px;
+    top:50%;
+    transform:translateY(-50%);
+    width:16px;
+    height:16px;
+    border-radius:999px;
+    border:2px solid #6b7280;
+  }
+  .search-icon::after{
+    content:'';
+    position:absolute;
+    right:-5px;
+    bottom:-4px;
+    width:7px;
+    height:2px;
+    border-radius:999px;
+    background:#6b7280;
+    transform:rotate(40deg);
+  }
+
+  .search-hint{
+    font-size:12px;
+    color:#9ca3af;
+    margin-top:4px;
   }
 
   .grid{
     display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-    gap:14px;
-    margin-top:12px;
+    grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+    gap:16px;
+    margin-top:16px;
   }
 
   .card{
-    background:var(--card);
-    border:1px solid #242a49;
-    border-radius:14px;
+    background:radial-gradient(circle at top left,rgba(148,163,255,.16),transparent 60%),
+               radial-gradient(circle at bottom right,rgba(56,189,248,.1),transparent 55%),
+               var(--card);
+    border:1px solid rgba(15,23,42,.9);
+    border-radius:16px;
     overflow:hidden;
     display:flex;
     flex-direction:column;
+    box-shadow:0 14px 30px rgba(15,23,42,.9);
+    transition:transform .16s ease-out, box-shadow .16s ease-out, border-color .16s ease-out;
+  }
+
+  .card:hover{
+    transform:translateY(-4px);
+    border-color:rgba(129,140,248,.8);
+    box-shadow:0 18px 40px rgba(15,23,42,1);
   }
 
   .thumb{
+    width:100%;
     aspect-ratio:16/9;
-    background:#0b0f1e;
+    background:radial-gradient(circle at top,#0f172a,#020617);
     display:grid;
     place-items:center;
     font-size:12px;
     color:#7aa2ff;
   }
 
-  .meta{padding:12px;}
+  .thumb img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+
+  .meta{
+    padding:12px 13px 6px;
+    flex:1 1 auto;
+  }
 
   .title{
-    font-weight:700;
+    font-weight:650;
     margin:0 0 4px;
+    font-size:15px;
   }
 
   .desc{
     color:var(--muted);
-    font-size:14px;
+    font-size:13px;
     margin:0 0 10px;
+    min-height:2.4em;
+  }
+
+  .tags{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px;
+    margin-bottom:6px;
+  }
+
+  .tag-pill{
+    font-size:11px;
+    color:#c7d2fe;
+    background:rgba(55,65,81,.8);
+    padding:2px 7px 3px;
+    border-radius:999px;
+    border:1px solid rgba(148,163,255,.4);
   }
 
   .btn{
-    margin:12px;
-    border-top:1px solid #242a49;
-    padding:10px;
+    margin:0 10px 10px;
+    border-top:1px solid rgba(31,41,55,.9);
+    padding:9px 10px 9px;
     text-align:center;
-    background:#1b2145;
-    border-radius:10px;
-    color:var(--ink);
+    background:linear-gradient(135deg,#4f46e5,#22d3ee);
+    border-radius:999px;
+    color:#eff6ff;
     text-decoration:none;
+    font-size:13px;
+    font-weight:600;
+    box-shadow:0 8px 22px rgba(15,23,42,.85);
+    transition:transform .12s ease-out, box-shadow .12s ease-out, filter .12s ease-out;
+  }
+
+  .btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 12px 26px rgba(15,23,42,1);
+    filter:brightness(1.03);
+  }
+
+  .btn:active{
+    transform:translateY(0);
+    box-shadow:0 6px 18px rgba(15,23,42,.9);
+    filter:brightness(.98);
   }
 
   footer{
     color:var(--muted);
-    font-size:13px;
-    margin-top:14px;
+    font-size:12px;
+    margin-top:16px;
+    text-align:center;
+    border-top:1px solid rgba(15,23,42,.9);
+    padding-top:10px;
+  }
+
+  @media (max-width:600px){
+    .wrap{padding:14px 10px 20px;}
+    header{align-items:flex-start;}
+    h1{font-size:20px;}
   }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Demo_Game</h1>
-    <input id="q" type="search" placeholder="게임 검색… (이름, 태그)">
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <div>
+        <h1>Demo_Game</h1>
+        <div class="subtitle">HTML5 미니 게임 컬렉션</div>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <span class="search-icon" aria-hidden="true"></span>
+      <input id="q" type="search" placeholder="게임 검색… (이름, 태그)">
+      <div class="search-hint">예: 퍼즐, 보드, 슈팅…</div>
+    </div>
   </header>
 
   <div id="grid" class="grid" aria-live="polite"></div>
@@ -123,29 +278,27 @@
   let games = [];
 
   try{
-    // index.html 과 같은 폴더에 있는 games.json 을 읽어옵니다.
+    // index.html 과 같은 폴더에 있는 games.json
     const res = await fetch('games.json', {cache:'no-store'});
-
     if (!res.ok) {
       throw new Error('파일을 찾을 수 없습니다. HTTP Status: ' + res.status);
     }
-
     games = await res.json();
   }catch(e){
     grid.innerHTML = `
       <div style="
-        color:#ff9aa2;
-        border:1px solid #7c3a3a;
-        padding:16px;
-        border-radius:8px;
-        background:#291a1c;
-        margin-top:20px;">
-        <strong style="color:#fff;">⚠️ 게임 목록을 불러오지 못했습니다.</strong>
-        <p style="margin-top:8px;">
-          이 HTML 파일(<code>index.html</code>)과 같은 폴더에
-          <code>games.json</code> 파일이 있는지 확인해주세요.
+        color:#fecaca;
+        border:1px solid #7f1d1d;
+        padding:18px;
+        border-radius:12px;
+        background:rgba(127,29,29,.2);
+        margin-top:20px;
+        box-shadow:0 14px 30px rgba(15,23,42,.9);">
+        <strong style="color:#fee2e2;">⚠ 게임 목록 (<code>games.json</code>)을 불러오지 못했습니다.</strong>
+        <p style="margin-top:8px;font-size:13px;color:#fecaca;">
+          이 파일(<code>index.html</code>)과 같은 폴더에 <code>games.json</code> 파일이 있는지 확인해주세요.
         </p>
-        <div style="font-size:13px;margin-top:8px;color:#ccc;">
+        <div style="font-size:12px;margin-top:6px;color:#fed7aa;">
           (오류 상세: ${e.message || '네트워크 연결 오류'})
         </div>
       </div>
@@ -154,23 +307,32 @@
     return;
   }
 
-  const card = (g) => `
-    <article class="card">
-      ${g.thumb
-        ? `<img class="thumb" src="${g.thumb}" alt="">`
-        : `<div class="thumb">No Thumbnail</div>`}
-      <div class="meta">
-        <h3 class="title">${g.title}</h3>
-        <p class="desc">${g.desc || ''}</p>
-      </div>
-      <a class="btn" href="${g.url}" target="_blank" rel="noopener">실행하기</a>
-    </article>
-  `;
+  const card = (g) => {
+    const tags = (g.tags || []).map(t =>
+      `<span class="tag-pill">${t}</span>`
+    ).join('');
+
+    const thumbPart = g.thumb
+      ? `<div class="thumb"><img src="${g.thumb}" alt=""></div>`
+      : `<div class="thumb">No Thumbnail</div>`;
+
+    return `
+      <article class="card">
+        ${thumbPart}
+        <div class="meta">
+          <h3 class="title">${g.title}</h3>
+          <p class="desc">${g.desc || ''}</p>
+          ${tags ? `<div class="tags">${tags}</div>` : ''}
+        </div>
+        <a class="btn" href="${g.url}" target="_blank" rel="noopener">실행하기</a>
+      </article>
+    `;
+  };
 
   const render = (list) => {
     grid.innerHTML =
       list.map(card).join('') ||
-      '<div style="color:#9aa3c7">검색 결과가 없습니다.</div>';
+      '<div style="color:#9aa3c7;font-size:14px;">검색 결과가 없습니다.</div>';
   };
 
   const filter = (text) => {
