@@ -71,7 +71,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1 id="title-main">고누</h1>
+    <h1 id="title-main">우물고누 / 호박고누</h1>
     <div class="row">
       <button id="btn-new" class="btn btn-primary">새 게임</button>
       <button id="btn-undo" class="btn">되돌리기</button>
@@ -318,8 +318,6 @@
       const leftCamp = !!piece.leftCamp;
 
       if(leftCamp && toInCamp) return false;
-      // 아직 캠프 밖으로 나간 적 없는 말은
-      // 캠프 내부 이동 + 처음 바깥으로 나가는 것 모두 허용
     }
     return true;
   }
@@ -608,7 +606,7 @@
     CTX.restore();
   }
 
-  // === 복주머니 말 그리기 (고도화 버전) ===
+  // ==== 복주머니 말 그리기 (이미지 느낌 버전) ====
   function drawPieces(def){
     function drawPouch(nodeIdx,player,highlight){
       const n = def.nodes[nodeIdx];
@@ -616,119 +614,152 @@
       CTX.translate(n.x, n.y);
 
       if(highlight){
-        CTX.shadowColor = '#facc15';
+        CTX.shadowColor = '#fde047';
         CTX.shadowBlur  = 20;
       }else{
         CTX.shadowBlur = 0;
       }
 
-      // player 0: 파란 복주머니, player 1: 빨간 복주머니
-      const isBlue = (player===0);
-
-      const topColor    = isBlue ? '#dbeafe' : '#fee2e2';
-      const midColor    = isBlue ? '#60a5fa' : '#fb7185';
-      const bottomColor = isBlue ? '#1d4ed8' : '#b91c1c';
-      const edgeColor   = isBlue ? '#0b1120' : '#7f1d1d';
-
-      const r = 20;  // 전체 크기
+      const isBlue = (player===0);   // 아래쪽: 파란 복주머니
+      const r = 22;
 
       // 바닥 그림자
       CTX.save();
       CTX.globalAlpha = 0.35;
       CTX.fillStyle = 'black';
       CTX.beginPath();
-      CTX.ellipse(0, r*1.05, r*0.9, r*0.35, 0, 0, Math.PI*2);
+      CTX.ellipse(0, r*1.05, r*0.95, r*0.35, 0, 0, Math.PI*2);
       CTX.fill();
       CTX.restore();
 
-      // 복주머니 몸통
-      const grad = CTX.createLinearGradient(0,-r,0,r);
-      grad.addColorStop(0, topColor);
-      grad.addColorStop(0.35, midColor);
-      grad.addColorStop(1, bottomColor);
-      CTX.fillStyle = grad;
+      // 메인 몸통 색 그라디언트
+      const bagGrad = CTX.createLinearGradient(0,-r,0,r);
+      if(isBlue){
+        bagGrad.addColorStop(0, '#dbeafe');
+        bagGrad.addColorStop(0.4, '#60a5fa');
+        bagGrad.addColorStop(1, '#1d4ed8');
+      }else{
+        bagGrad.addColorStop(0, '#fee2e2');
+        bagGrad.addColorStop(0.4, '#fb7185');
+        bagGrad.addColorStop(1, '#e11d48');
+      }
+      CTX.fillStyle = bagGrad;
 
+      // 통통한 복주머니 몸통
       CTX.beginPath();
-      // 위 목 부분(살짝 좁게)
-      CTX.moveTo(0, -r*0.9);
-      CTX.bezierCurveTo( r*0.6, -r*0.75,  r*0.9, -r*0.2,  r*0.8,  r*0.35);
-      CTX.bezierCurveTo( r*0.4,  r*0.95,  r*0.1,  r*1.05,  0,     r*1.05);
-      CTX.bezierCurveTo(-r*0.1,  r*1.05, -r*0.4,  r*0.95, -r*0.8, r*0.35);
-      CTX.bezierCurveTo(-r*0.9, -r*0.2,  -r*0.6, -r*0.75, 0,     -r*0.9);
+      CTX.moveTo(0, -r*0.85);
+      CTX.bezierCurveTo( r*0.85, -r*0.7,  r*1.0, -r*0.1,  r*0.9,  r*0.6);
+      CTX.bezierCurveTo( r*0.5,  r*1.1,  r*0.1,  r*1.2,  0,      r*1.2);
+      CTX.bezierCurveTo(-r*0.1,  r*1.2, -r*0.5,  r*1.1, -r*0.9,  r*0.6);
+      CTX.bezierCurveTo(-r*1.0, -r*0.1, -r*0.85, -r*0.7, 0, -r*0.85);
       CTX.closePath();
       CTX.fill();
 
       CTX.lineWidth = 2;
-      CTX.strokeStyle = edgeColor;
+      CTX.strokeStyle = isBlue ? '#1e3a8a' : '#7f1d1d';
       CTX.stroke();
 
-      // 윗부분 주름 표현
-      CTX.save();
-      CTX.globalAlpha = 0.6;
-      CTX.strokeStyle = isBlue ? 'rgba(30,64,175,0.7)' : 'rgba(153,27,27,0.7)';
-      CTX.lineWidth = 1.3;
+      // 아래쪽 색동(둥근 띠)
+      const stripeColorsBlue  = ['#60a5fa','#38bdf8','#22c55e','#eab308','#f97316','#a855f7'];
+      const stripeColorsRed   = ['#f97373','#f97316','#facc15','#4ade80','#38bdf8','#a855f7'];
+      const stripes = isBlue ? stripeColorsBlue : stripeColorsRed;
+      const startAngle = Math.PI*0.15;
+      const endAngle   = Math.PI*0.85;
+      const angleSpan  = (endAngle - startAngle) / stripes.length;
+
+      const innerR = r*0.85;
+      const outerR = r*1.05;
+      for(let i=0;i<stripes.length;i++){
+        const a0 = startAngle + i*angleSpan;
+        const a1 = a0 + angleSpan;
+        CTX.beginPath();
+        CTX.arc(0,0,outerR,a0,a1);
+        CTX.arc(0,0,innerR,a1,a0,true);
+        CTX.closePath();
+        CTX.fillStyle = stripes[i];
+        CTX.fill();
+      }
+
+      // 중앙 금색 원(테두리)
+      const ringOuter = r*0.78;
+      const ringInner = r*0.55;
       CTX.beginPath();
-      CTX.moveTo(-r*0.5, -r*0.35);
-      CTX.quadraticCurveTo(-r*0.2, -r*0.55,  0, -r*0.45);
-      CTX.quadraticCurveTo( r*0.2, -r*0.4,  r*0.5, -r*0.35);
-      CTX.stroke();
+      CTX.arc(0,0,ringOuter,0,Math.PI*2);
+      CTX.fillStyle = '#facc15';
+      CTX.fill();
+
+      CTX.beginPath();
+      CTX.arc(0,0,ringInner,0,Math.PI*2);
+      CTX.fillStyle = 'white';
+      CTX.fill();
+
+      // 안쪽에 간단한 장식(작은 반원들)
+      CTX.save();
+      CTX.strokeStyle = '#fbbf24';
+      CTX.lineWidth = 1.4;
+      for(let i=0;i<6;i++){
+        const a = (Math.PI*2/6)*i;
+        const cx = Math.cos(a)*((ringOuter+ringInner)/2);
+        const cy = Math.sin(a)*((ringOuter+ringInner)/2);
+        CTX.beginPath();
+        CTX.arc(cx,cy,ringOuter*0.08,0,Math.PI*2);
+        CTX.stroke();
+      }
       CTX.restore();
 
-      // 입구(목 부분) 띠
+      // 중앙 "복" 글자
+      CTX.fillStyle = '#f59e0b';
+      CTX.font = 'bold 14px system-ui';
+      CTX.textAlign = 'center';
+      CTX.textBaseline = 'middle';
+      CTX.fillText('복', 0, 1);
+
+      // 윗부분 하트형 뚜껑
+      const topH = r*0.9;
       CTX.beginPath();
-      CTX.moveTo(-r*0.7, -r*0.3);
-      CTX.quadraticCurveTo(0, -r*0.15, r*0.7, -r*0.3);
-      CTX.quadraticCurveTo(0, -r*0.45, -r*0.7, -r*0.3);
+      CTX.moveTo(0, -topH);
+      CTX.bezierCurveTo(-r*0.4, -topH*1.15, -r*0.45, -topH*0.7, -r*0.25, -topH*0.55);
+      CTX.bezierCurveTo(0, -topH*0.25, r*0.25, -topH*0.55, r*0.25, -topH*0.55);
+      CTX.bezierCurveTo(r*0.45, -topH*0.7, r*0.4, -topH*1.15, 0, -topH);
       CTX.closePath();
-      CTX.fillStyle = isBlue ? '#1e40af' : '#7f1d1d';
+      CTX.fillStyle = isBlue ? '#1d4ed8' : '#e11d48';
       CTX.fill();
 
-      // 끈 (좌우로 늘어진 형태)
-      CTX.lineWidth = 1.8;
+      // 목 부분 노란 띠
+      CTX.beginPath();
+      CTX.ellipse(0,-r*0.55,r*0.8,r*0.22,0,0,Math.PI,true);
+      CTX.fillStyle = '#facc15';
+      CTX.fill();
+
+      // 끈
+      CTX.lineWidth = 2;
       CTX.strokeStyle = '#facc15';
       CTX.beginPath();
-      CTX.moveTo(-r*0.45, -r*0.25);
-      CTX.bezierCurveTo(-r*0.9, -r*0.1, -r*0.9, r*0.2, -r*0.65, r*0.35);
+      CTX.moveTo(-r*0.25,-r*0.55);
+      CTX.bezierCurveTo(-r*0.6,-r*0.4,-r*0.7,-r*0.1,-r*0.6,r*0.1);
       CTX.stroke();
       CTX.beginPath();
-      CTX.moveTo( r*0.45, -r*0.25);
-      CTX.bezierCurveTo( r*0.9, -r*0.1,  r*0.9, r*0.2,  r*0.65, r*0.35);
+      CTX.moveTo( r*0.25,-r*0.55);
+      CTX.bezierCurveTo( r*0.6,-r*0.4, r*0.7,-r*0.1, r*0.6,r*0.1);
       CTX.stroke();
 
-      // 끈 끝 작은 매듭
+      // 끈 끝 장식
       CTX.beginPath();
-      CTX.arc(-r*0.68, r*0.37, 2.4, 0, Math.PI*2);
-      CTX.arc( r*0.68, r*0.37, 2.4, 0, Math.PI*2);
-      CTX.fillStyle = '#fde68a';
-      CTX.fill();
-
-      // 가운데 매듭
-      CTX.beginPath();
-      CTX.arc(0,-r*0.33,3,0,Math.PI*2);
-      CTX.fillStyle = '#fbbf24';
+      CTX.arc(-r*0.6,r*0.12,2.5,0,Math.PI*2);
+      CTX.arc( r*0.6,r*0.12,2.5,0,Math.PI*2);
+      CTX.fillStyle = isBlue ? '#bfdbfe' : '#fed7aa';
       CTX.fill();
 
       // 몸통 하이라이트
       CTX.save();
-      CTX.globalAlpha = 0.35;
+      CTX.globalAlpha = 0.3;
       CTX.fillStyle = 'white';
       CTX.beginPath();
-      CTX.moveTo(-r*0.15, -r*0.2);
-      CTX.quadraticCurveTo( r*0.05, -r*0.35, r*0.25, -r*0.05);
-      CTX.quadraticCurveTo( r*0.05,  r*0.05, -r*0.1, 0);
+      CTX.moveTo(-r*0.2,-r*0.1);
+      CTX.bezierCurveTo(0,-r*0.35,r*0.35,-r*0.05,r*0.15,r*0.25);
+      CTX.bezierCurveTo(-r*0.05,r*0.25,-r*0.18,r*0.1,-r*0.2,-r*0.1);
       CTX.closePath();
       CTX.fill();
-      CTX.restore();
-
-      // 약한 림 라이트(오른쪽 가장자리)
-      CTX.save();
-      CTX.globalAlpha = 0.2;
-      CTX.strokeStyle = 'white';
-      CTX.lineWidth = 1;
-      CTX.beginPath();
-      CTX.moveTo(r*0.75, -r*0.2);
-      CTX.quadraticCurveTo(r*0.95, 0, r*0.7, r*0.6);
-      CTX.stroke();
       CTX.restore();
 
       CTX.restore();
