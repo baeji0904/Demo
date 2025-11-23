@@ -11,9 +11,11 @@
   { "title": "2048",     "url": "games/2048.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "실행취소/음소거" },
   { "title": "스네이크",     "url": "games/snake.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "사과 먹기" },
   { "title": "땅따먹기",     "url": "games/boardwar.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "영역차지" },
+  { "title": "하노이탑",     "url": "games/hanoi.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "탑 옮기기" },
   { "title": "카드대전",     "url": "games/card/card.html",     "thumb": "", "tags": ["퍼즐"],       "desc": "카드대전" },
   { "title": "갤러그",   "url": "games/galaga.html",   "thumb": "", "tags": ["슈팅"],       "desc": "다이브/재합류" }
 ]
+
 
 
 
