@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>네온 배틀쉽</title>
+<style>
+  :root{
+    --bg:#050816;
+    --panel:#090e1f;
+    --ink:#e9edff;
+    --muted:#9aa3c7;
+    --line:#222747;
+    --accent:#7aa2ff;
+    --accent2:#22c55e;
+    --danger:#fb7185;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    background:radial-gradient(circle at top,#151b3c 0,#050816 55%);
+    color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto;
+  }
+  .wrap{
+    max-width:1024px;
+    margin:0 auto;
+    padding:16px;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:8px;
+  }
+  h1{
+    margin:0;
+    font-size:22px;
+    letter-spacing:0.02em;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  h1 span.logo-dot{
+    width:24px;
+    height:24px;
+    border-radius:999px;
+    background:radial-gradient(circle at 30% 20%,#f97316,#ec4899);
+    box-shadow:0 0 16px rgba(236,72,153,.9);
+  }
+  .subtitle{
+    font-size:12px;
+    color:var(--muted);
+  }
+  .row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .btn{
+    padding:8px 12px;
+    border:1px solid #2a315e;
+    border-radius:999px;
+    background:#111834;
+    color:var(--ink);
+    cursor:pointer;
+    font-size:13px;
+    line-height:1.2;
+    white-space:nowrap;
+  }
+  .btn-primary{
+    background:linear-gradient(180deg,#3650ff,#2330b7);
+    border-color:#4a5bff;
+  }
+  .btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns:minmax(0,3fr) minmax(0,2.3fr);
+    gap:14px;
+  }
+  @media (max-width:880px){
+    .layout{grid-template-columns:1fr;}
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:14px;
+    box-shadow:0 18px 40px rgba(0,0,0,.8);
+  }
+  .game-shell{
+    background:#020414;
+    border-radius:16px;
+    padding:10px;
+    border:1px solid #181e3a;
+  }
+  .hud{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin:8px 0 6px;
+  }
+  .tag{
+    display:inline-flex;
+    gap:6px;
+    align-items:center;
+    padding:6px 10px;
+    border:1px solid #2b325c;
+    border-radius:999px;
+    background:#10152f;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .tag b{
+    font-weight:600;
+    color:var(--ink);
+    min-width:2ch;
+    text-align:right;
+  }
+  .pill-label{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 8px;
+    border-radius:999px;
+    border:1px solid #334155;
+    background:#020617;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .status-msg{
+    margin-top:6px;
+    font-size:13px;
+    color:var(--muted);
+    min-height:18px;
+  }
+  .status-msg.positive{color:#4ade80;}
+  .status-msg.negative{color:var(--danger);}
+
+  .hint{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:6px;
+  }
+  .hint ul{
+    padding-left:18px;
+    margin:4px 0 0;
+  }
+  .hint li{margin-bottom:2px;}
+
+  footer{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:14px;
+    text-align:left;
+  }
+
+  /* --- 배틀쉽 보드/셀 스타일 --- */
+  .boards{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+    margin-top:4px;
+  }
+  @media (max-width:720px){
+    .boards{
+      grid-template-columns:1fr;
+    }
+  }
+  .board-col{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .board-title{
+    font-size:13px;
+    color:var(--muted);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .board-sub{
+    font-size:11px;
+    opacity:0.8;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(10,1fr);
+    gap:2px;
+    padding:4px;
+    border-radius:12px;
+    background:radial-gradient(circle at top,#020617,#020314);
+    border:1px solid #1e293b;
+    box-shadow:0 10px 25px rgba(0,0,0,.6);
+  }
+  .grid, .cell, .cell *{
+    -webkit-user-select:none;
+    -moz-user-select:none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+  .cell{
+    position:relative;
+    aspect-ratio:1/1;
+    border-radius:6px;
+    border:1px solid #1f2937;
+    background:#020617;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    color:var(--muted);
+    cursor:pointer;
+    transition:
+      background .12s ease-out,
+      border-color .12s ease-out,
+      transform .08s ease-out,
+      box-shadow .08s ease-out;
+  }
+  .grid-enemy .cell:hover{
+    transform:translateY(-1px);
+    box-shadow:0 6px 12px rgba(15,23,42,0.9);
+    border-color:#334155;
+  }
+  .grid-player .cell{
+    cursor:default;
+  }
+
+  .cell-ship{
+    background:linear-gradient(145deg,#0f172a,#020617);
+    border-color:#0f172a;
+    color:#64748b;
+  }
+  .cell-hit{
+    background:radial-gradient(circle at top,#f97316,#b91c1c);
+    color:#fee2e2;
+    border-color:#f97316;
+    box-shadow:0 0 0 1px rgba(248,113,113,0.7);
+  }
+  .cell-miss{
+    background:#020617;
+    border-style:dotted;
+    border-color:#475569;
+    color:#64748b;
+  }
+  .cell-sunk{
+    background:radial-gradient(circle at top,#ef4444,#7f1d1d);
+    color:#fee2e2;
+    border-color:#f97316;
+    box-shadow:0 0 0 2px rgba(248,113,113,0.9);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="logo-dot"></span>네온 배틀쉽</h1>
+      <div class="subtitle">랜덤 타워 디펜스와 비슷한 네온 UI의 싱글플레이 배틀쉽</div>
+    </div>
+    <div class="row">
+      <button id="btn-new" class="btn btn-primary">새 게임</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- 왼쪽 : 게임 화면 -->
+    <section class="panel">
+      <div class="hud">
+        <span class="tag">내 함선 <b id="player-ships">0</b></span>
+        <span class="tag">적 함선 <b id="enemy-ships">0</b></span>
+        <span class="tag">차례 <b id="turn-label">-</b></span>
+      </div>
+
+      <div class="game-shell">
+        <div class="boards">
+          <div class="board-col">
+            <div class="board-title">
+              <span>적 해역</span>
+              <span class="board-sub">클릭해서 포탄 발사</span>
+            </div>
+            <div id="enemy-grid" class="grid grid-enemy"></div>
+          </div>
+
+          <div class="board-col">
+            <div class="board-title">
+              <span>내 해역</span>
+              <span class="board-sub">내 함선 & 피격 상황</span>
+            </div>
+            <div id="player-grid" class="grid grid-player"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="status" class="status-msg">새 게임 버튼을 눌러 시작하세요.</div>
+
+      <div class="hint">
+        <div class="pill-label">게임 규칙</div>
+        <ul>
+          <li>컴퓨터와 1:1로 플레이하는 배틀쉽입니다.</li>
+          <li>위쪽 <b>적 해역</b> 보드를 클릭해서 공격하세요.</li>
+          <li>빨간 칸 / ✕ 는 명중, 점선 칸 / • 는 빗나감입니다.</li>
+          <li>아래 <b>내 해역</b>에는 내 배 위치와 컴퓨터의 공격 결과가 표시됩니다.</li>
+          <li>상대 함대를 모두 격침시키면 승리, 내 함대가 모두 격침되면 패배입니다.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 오른쪽 : 정보 패널 -->
+    <aside class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px;">
+        <span class="pill-label">
+          모드 <strong style="color:#e5e7eb;">배틀쉽 (Battleship)</strong>
+        </span>
+        <span class="pill-label">
+          플레이 방식 <span>싱글 플레이 (vs 컴퓨터)</span>
+        </span>
+      </div>
+
+      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4;">
+        <div style="font-weight:600;color:var(--ink);margin-bottom:4px;">함대 구성</div>
+        <ul style="padding-left:18px;margin:4px 0;">
+          <li>항공모함 (5칸)</li>
+          <li>전함 (4칸)</li>
+          <li>순양함 (3칸)</li>
+          <li>잠수함 (3칸)</li>
+          <li>초계함 (2칸)</li>
+        </ul>
+        <p style="margin-top:6px;">
+          모든 함대는 <b>자동으로 랜덤 배치</b>됩니다.<br>
+          좌표 표기는 A-1, B-3 처럼 표시합니다.
+        </p>
+      </div>
+
+      <footer>© 2024 Demo_Game — 네온 스타일 배틀쉽 샘플</footer>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const BOARD_SIZE = 10;
+  const SHIP_DEFS = [
+    { name: '항공모함', size: 5 },
+    { name: '전함',     size: 4 },
+    { name: '순양함',   size: 3 },
+    { name: '잠수함',   size: 3 },
+    { name: '초계함',   size: 2 }
+  ];
+
+  const playerShipsEl = document.getElementById('player-ships');
+  const enemyShipsEl  = document.getElementById('enemy-ships');
+  const turnLabelEl   = document.getElementById('turn-label');
+  const statusBox     = document.getElementById('status');
+  const btnNew        = document.getElementById('btn-new');
+  const enemyGridEl   = document.getElementById('enemy-grid');
+  const playerGridEl  = document.getElementById('player-grid');
+
+  const enemyCells = [];
+  const playerCells = [];
+
+  const game = {
+    playerBoard: null,
+    enemyBoard: null,
+    playerShips: [],
+    enemyShips: [],
+    turn: 'player',
+    gameOver: false,
+    shots: 0
+  };
+
+  function createEmptyBoard(){
+    const board = [];
+    for(let r=0;r<BOARD_SIZE;r++){
+      const row = [];
+      for(let c=0;c<BOARD_SIZE;c++){
+        row.push({
+          shipIndex: null,
+          hit: false,
+          miss: false
+        });
+      }
+      board.push(row);
+    }
+    return board;
+  }
+
+  function buildGrids(){
+    enemyGridEl.innerHTML = '';
+    playerGridEl.innerHTML = '';
+    enemyCells.length = 0;
+    playerCells.length = 0;
+
+    for(let r=0;r<BOARD_SIZE;r++){
+      for(let c=0;c<BOARD_SIZE;c++){
+        const eCell = document.createElement('div');
+        eCell.className = 'cell';
+        eCell.dataset.row = String(r);
+        eCell.dataset.col = String(c);
+        eCell.addEventListener('click', onEnemyCellClick);
+        enemyGridEl.appendChild(eCell);
+        enemyCells.push(eCell);
+
+        const pCell = document.createElement('div');
+        pCell.className = 'cell';
+        pCell.dataset.row = String(r);
+        pCell.dataset.col = String(c);
+        playerGridEl.appendChild(pCell);
+        playerCells.push(pCell);
+      }
+    }
+  }
+
+  function setStatus(msg, type){
+    statusBox.textContent = msg || '';
+    statusBox.classList.remove('positive','negative');
+    if(type === 'good') statusBox.classList.add('positive');
+    if(type === 'bad')  statusBox.classList.add('negative');
+  }
+
+  function getRemainingShips(ships){
+    if(!ships) return 0;
+    let count = 0;
+    for(const ship of ships){
+      if(ship.hits < ship.size) count++;
+    }
+    return count;
+  }
+
+  function updateHUD(){
+    playerShipsEl.textContent = String(getRemainingShips(game.playerShips));
+    enemyShipsEl.textContent  = String(getRemainingShips(game.enemyShips));
+    if(game.gameOver){
+      turnLabelEl.textContent = '게임 종료';
+    }else{
+      turnLabelEl.textContent = game.turn === 'player' ? '플레이어' : '컴퓨터';
+    }
+  }
+
+  function placeFleetRandom(board){
+    const ships = SHIP_DEFS.map(def => ({
+      name: def.name,
+      size: def.size,
+      hits: 0,
+      cells: []
+    }));
+
+    for(let i=0;i<ships.length;i++){
+      const ship = ships[i];
+      let placed = false;
+      let attempts = 0;
+
+      while(!placed && attempts < 500){
+        attempts++;
+        const horizontal = Math.random() < 0.5;
+        const maxRow = horizontal ? BOARD_SIZE : BOARD_SIZE - ship.size + 1;
+        const maxCol = horizontal ? BOARD_SIZE - ship.size + 1 : BOARD_SIZE;
+        const row = Math.floor(Math.random() * maxRow);
+        const col = Math.floor(Math.random() * maxCol);
+
+        let ok = true;
+        for(let k=0;k<ship.size;k++){
+          const r = row + (horizontal ? 0 : k);
+          const c = col + (horizontal ? k : 0);
+          if(board[r][c].shipIndex !== null){
+            ok = false;
+            break;
+          }
+        }
+        if(!ok) continue;
+
+        for(let k=0;k<ship.size;k++){
+          const r = row + (horizontal ? 0 : k);
+          const c = col + (horizontal ? k : 0);
+          board[r][c].shipIndex = i;
+          ship.cells.push({row:r,col:c});
+        }
+        placed = true;
+      }
+
+      if(!placed){
+        console.warn('함선 배치 실패:', ship.name);
+      }
+    }
+
+    return ships;
+  }
+
+  function renderBoards(){
+    renderBoard(game.enemyBoard, enemyCells, true);
+    renderBoard(game.playerBoard, playerCells, false);
+  }
+
+  function renderBoard(board, cells, isEnemy){
+    if(!board) return;
+
+    for(let r=0;r<BOARD_SIZE;r++){
+      for(let c=0;c<BOARD_SIZE;c++){
+        const cellState = board[r][c];
+        const idx = r * BOARD_SIZE + c;
+        const cellEl = cells[idx];
+
+        const hasShip = cellState.shipIndex !== null;
+        const hit = cellState.hit;
+        const miss = cellState.miss;
+
+        const classes = ['cell'];
+
+        if(hit && hasShip){
+          const ships = isEnemy ? game.enemyShips : game.playerShips;
+          const ship = ships && ships[cellState.shipIndex];
+          if(ship && ship.hits >= ship.size){
+            classes.push('cell-sunk');
+          }else{
+            classes.push('cell-hit');
+          }
+        }else if(miss){
+          classes.push('cell-miss');
+        }else if(hasShip && !isEnemy){
+          classes.push('cell-ship');
+        }
+
+        cellEl.className = classes.join(' ');
+
+        // 표시용 심볼
+        let symbol = '';
+        if(hit && hasShip){
+          symbol = '✕';
+        }else if(miss){
+          symbol = '•';
+        }else if(hasShip && !isEnemy){
+          symbol = '■';
+        }
+        cellEl.textContent = symbol;
+      }
+    }
+  }
+
+  function coordToLabel(row, col){
+    const letters = 'ABCDEFGHIJ';
+    return letters[row] + '-' + (col + 1);
+  }
+
+  function checkAllSunk(ships){
+    return getRemainingShips(ships) === 0;
+  }
+
+  function newGame(){
+    game.playerBoard = createEmptyBoard();
+    game.enemyBoard  = createEmptyBoard();
+    game.playerShips = placeFleetRandom(game.playerBoard);
+    game.enemyShips  = placeFleetRandom(game.enemyBoard);
+    game.turn        = 'player';
+    game.gameOver    = false;
+    game.shots       = 0;
+
+    setStatus('새 게임을 시작했습니다! 적 해역을 클릭해 공격하세요.','good');
+    renderBoards();
+    updateHUD();
+  }
+
+  function onEnemyCellClick(e){
+    const cellEl = e.currentTarget;
+    const row = Number(cellEl.dataset.row);
+    const col = Number(cellEl.dataset.col);
+
+    if(game.gameOver){
+      setStatus('게임이 이미 종료되었습니다. 새 게임을 시작해 주세요.','');
+      return;
+    }
+    if(game.turn !== 'player'){
+      setStatus('지금은 컴퓨터 차례입니다.','');
+      return;
+    }
+
+    playerFire(row, col);
+  }
+
+  function playerFire(row, col){
+    const cell = game.enemyBoard[row][col];
+
+    if(cell.hit || cell.miss){
+      setStatus('이미 공격한 칸입니다. 다른 위치를 선택하세요.','');
+      return;
+    }
+
+    const coord = coordToLabel(row, col);
+
+    if(cell.shipIndex !== null){
+      cell.hit = true;
+      const ship = game.enemyShips[cell.shipIndex];
+      ship.hits++;
+      if(ship.hits >= ship.size){
+        setStatus(`명중! ${ship.name} (${coord}) 을(를) 격침했습니다!`,'good');
+      }else{
+        setStatus(`명중! (${coord})`,'good');
+      }
+    }else{
+      cell.miss = true;
+      setStatus(`(${coord}) 은(는) 빗나갔습니다.`,'');
+    }
+
+    game.shots++;
+    renderBoards();
+    updateHUD();
+
+    if(checkAllSunk(game.enemyShips)){
+      game.gameOver = true;
+      setStatus('적 함대를 모두 격침했습니다! 승리입니다.','good');
+      updateHUD();
+      renderBoards();
+      return;
+    }
+
+    game.turn = 'enemy';
+    updateHUD();
+
+    setTimeout(aiTurn, 650);
+  }
+
+  function aiTurn(){
+    if(game.gameOver) return;
+
+    const candidates = [];
+    for(let r=0;r<BOARD_SIZE;r++){
+      for(let c=0;c<BOARD_SIZE;c++){
+        const cell = game.playerBoard[r][c];
+        if(!cell.hit && !cell.miss){
+          candidates.push({row:r,col:c});
+        }
+      }
+    }
+
+    if(!candidates.length){
+      // 이론상 거의 안 오는 상황 (보드가 다 털린 경우)
+      game.turn = 'player';
+      updateHUD();
+      return;
+    }
+
+    const choice = candidates[Math.floor(Math.random() * candidates.length)];
+    const row = choice.row;
+    const col = choice.col;
+    const cell = game.playerBoard[row][col];
+    const coord = coordToLabel(row, col);
+
+    if(cell.shipIndex !== null){
+      cell.hit = true;
+      const ship = game.playerShips[cell.shipIndex];
+      ship.hits++;
+      if(ship.hits >= ship.size){
+        setStatus(`컴퓨터가 ${coord} 을(를) 공격해 내 ${ship.name} 을(를) 격침했습니다!`,'bad');
+      }else{
+        setStatus(`컴퓨터가 ${coord} 을(를) 공격해 명중했습니다!`,'bad');
+      }
+    }else{
+      cell.miss = true;
+      setStatus(`컴퓨터가 ${coord} 을(를) 공격했지만 빗나갔습니다.`,'');
+    }
+
+    renderBoards();
+    updateHUD();
+
+    if(checkAllSunk(game.playerShips)){
+      game.gameOver = true;
+      setStatus('내 모든 함대가 격침당했습니다... 패배입니다.','bad');
+      updateHUD();
+      renderBoards();
+      return;
+    }
+
+    game.turn = 'player';
+    updateHUD();
+  }
+
+  // 초기화
+  buildGrids();
+  btnNew.addEventListener('click', newGame);
+  newGame();
+})();
+</script>
+</body>
+</html>
