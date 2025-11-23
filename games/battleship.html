@@ -277,6 +277,7 @@
     position:relative;
     z-index:1;
   }
+  .axis-corner{}
 
   .cell{
     position:relative;
@@ -383,32 +384,6 @@
     box-shadow:0 0 0 2px rgba(248,113,113,0.9);
     border-color:#fb7185 !important;
   }
-
-  /* === BGM 카드 === */
-  .yt-card{
-    margin-top:8px;
-    background:#020617;
-    border-radius:12px;
-    border:1px solid #1e293b;
-    padding:8px;
-    font-size:12px;
-    color:var(--muted);
-  }
-  .yt-card-title{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:4px;
-    color:var(--ink);
-  }
-  .yt-card-title span{
-    font-weight:600;
-  }
-  .yt-card-tip{
-    font-size:10px;
-    opacity:0.75;
-    margin-bottom:4px;
-  }
 </style>
 </head>
 <body>
@@ -423,6 +398,14 @@
       <button id="btn-new" class="btn btn-primary">새 게임</button>
     </div>
   </header>
+
+  <!-- 🔊 BGM: /BGM/Attack of The Trolls.mp3 사용 -->
+  <audio
+    id="bgm"
+    preload="auto"
+    loop
+    src="BGM/Attack of The Trolls.mp3">
+  </audio>
 
   <div class="layout">
     <!-- 왼쪽 : 게임 화면 -->
@@ -479,19 +462,7 @@
         </span>
       </div>
 
-      <!-- MP3 BGM 안내 카드 -->
-      <div class="yt-card">
-        <div class="yt-card-title">
-          <span>BGM 플레이어</span>
-          <span style="font-size:11px;color:var(--muted);">Attack of The Trolls.mp3</span>
-        </div>
-        <div class="yt-card-tip">
-          상단의 <b>BGM ▶</b> 버튼으로 배경음악을 재생/일시정지할 수 있습니다.<br>
-          브라우저 자동 재생 정책 때문에 처음에는 한 번 눌러줘야 할 수 있습니다.
-        </div>
-      </div>
-
-      <div style="margin-top:8px;font-size:13px;color:var(--muted);line-height:1.4%;">
+      <div style="margin-top:8px;font-size:13px;color:var(--muted);line-height:1.4;">
         <div style="font-weight:600;color:var(--ink);margin-bottom:4px;">배치 & 컨트롤</div>
         <ul style="padding-left:18px;margin:4px 0;">
           <li><b>함대 선택</b> 영역에서 배치/수정할 배를 직접 선택합니다.</li>
@@ -511,7 +482,7 @@
 
       <div id="placement-info" class="status-msg" style="margin-top:8px;">오른쪽에서 함선을 선택한 뒤 내 해역에서 위치를 클릭해 배치하세요.</div>
 
-      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4%;">
+      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4;">
         <div style="font-weight:600;color:var(--ink);margin-bottom:4px;">AI 난이도</div>
         <div class="row" style="margin-top:4px;gap:6px;">
           <button type="button" class="btn-pill" data-ai-diff="easy">초급</button>
@@ -523,7 +494,7 @@
         </p>
       </div>
 
-      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4%;">
+      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4;">
         <div style="font-weight:600;color:var(--ink);margin-bottom:4px;">함대 선택</div>
         <div id="ship-list"></div>
       </div>
@@ -547,15 +518,6 @@
     </aside>
   </div>
 </div>
-
-<!-- MP3 BGM (숨김 오디오) -->
-<audio
-  id="bgm-audio"
-  src="BGM/Attack of The Trolls.mp3"
-  preload="auto"
-  loop
-  hidden
-></audio>
 
 <script>
 (function(){
@@ -589,7 +551,7 @@
 
   const aiDiffButtons = Array.from(document.querySelectorAll('[data-ai-diff]'));
   const btnBgm        = document.getElementById('btn-bgm');
-  const bgmAudio      = document.getElementById('bgm-audio');
+  const bgmAudio      = document.getElementById('bgm');
 
   const enemyCells  = [];
   const playerCells = [];
@@ -610,6 +572,7 @@
   };
 
   let previewCells = [];
+  let bgmPlaying = false;
 
   function setStatus(msg, type){
     statusBox.textContent = msg || '';
@@ -618,29 +581,32 @@
     if(type === 'bad')  statusBox.classList.add('negative');
   }
 
-  /* ==== BGM 토글 (HTML5 audio) ==== */
+  /* ==== BGM 토글 ==== */
   function toggleBgm(){
     if(!bgmAudio){
-      setStatus('BGM 오디오 요소를 찾을 수 없습니다. id="bgm-audio" 를 확인해 주세요.','');
+      setStatus('BGM 오디오 요소를 찾을 수 없습니다.','bad');
+      return;
+    }
+    if(!bgmAudio.src){
+      setStatus('BGM 경로가 비어 있습니다. audio 태그 src를 확인해 주세요.','bad');
       return;
     }
 
-    // 재생 중이면 일시정지
-    if(!bgmAudio.paused){
+    if(bgmAudio.paused){
+      bgmAudio.play()
+        .then(()=>{
+          bgmPlaying = true;
+          btnBgm.textContent = 'BGM ❚❚';
+        })
+        .catch(err=>{
+          console.warn('BGM 재생 실패:', err);
+          setStatus('브라우저가 자동 재생을 막았거나, BGM 파일 경로에 문제가 있습니다. 한 번 더 눌러 보거나, 파일 위치를 확인해 주세요.','');
+        });
+    }else{
       bgmAudio.pause();
-      if(btnBgm) btnBgm.textContent = 'BGM ▶';
-      setStatus('BGM을 일시 정지했습니다.','');
-      return;
+      bgmPlaying = false;
+      btnBgm.textContent = 'BGM ▶';
     }
-
-    // 재생 시도
-    bgmAudio.play().then(()=>{
-      if(btnBgm) btnBgm.textContent = 'BGM ❚❚';
-      setStatus('BGM 재생 중: Attack of The Trolls','');
-    }).catch(err=>{
-      console.warn('BGM 재생 실패:', err);
-      setStatus('브라우저에서 자동 재생을 막았습니다. BGM 버튼을 한 번 더 눌러 보세요.','');
-    });
   }
 
   function createEmptyBoard(){
