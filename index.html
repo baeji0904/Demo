@@ -277,13 +277,34 @@
   const q = document.getElementById('q');
   let games = [];
 
-  try{
-    // index.html 과 같은 폴더에 있는 games.json
-    const res = await fetch('games.json', {cache:'no-store'});
-    if (!res.ok) {
-      throw new Error('파일을 찾을 수 없습니다. HTTP Status: ' + res.status);
+  // 여러 경로를 차례대로 시도해서 games.json 을 찾는 함수
+  async function fetchWithRetry(){
+    const candidates = [
+      'games.json',
+      './games.json',
+      'games/games.json',
+      './games/games.json'
+    ];
+    const errors = [];
+
+    for(const url of candidates){
+      try{
+        const res = await fetch(url, {cache:'no-store'});
+        if(res.ok){
+          console.log('[Demo_Game] games.json loaded from', url);
+          return res.json();
+        }else{
+          errors.push(`${url} → HTTP ${res.status}`);
+        }
+      }catch(err){
+        errors.push(`${url} → ${err.message}`);
+      }
     }
-    games = await res.json();
+    throw new Error(errors.join(' | '));
+  }
+
+  try{
+    games = await fetchWithRetry();
   }catch(e){
     grid.innerHTML = `
       <div style="
@@ -296,10 +317,12 @@
         box-shadow:0 14px 30px rgba(15,23,42,.9);">
         <strong style="color:#fee2e2;">⚠ 게임 목록 (<code>games.json</code>)을 불러오지 못했습니다.</strong>
         <p style="margin-top:8px;font-size:13px;color:#fecaca;">
-          이 파일(<code>index.html</code>)과 같은 폴더에 <code>games.json</code> 파일이 있는지 확인해주세요.
+          이 파일(<code>index.html</code>)과 같은 폴더에
+          <code>games.json</code> 이 있거나,<br>
+          혹은 하위 폴더 <code>games/games.json</code> 위치에 있는지 확인해주세요.
         </p>
         <div style="font-size:12px;margin-top:6px;color:#fed7aa;">
-          (오류 상세: ${e.message || '네트워크 연결 오류'})
+          (시도한 경로: ${e.message})
         </div>
       </div>
     `;
