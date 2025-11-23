@@ -113,7 +113,7 @@
   </header>
 
   <div id="grid" class="grid" aria-live="polite"></div>
-  <footer>© Demo_Game— HTML5 데모 모음</footer>
+  <footer>© 2024 Demo_Game — HTML5 데모 모음</footer>
 </div>
 
 <script>
@@ -123,8 +123,8 @@
   let games = [];
 
   try{
-    // index.html 이 있는 폴더 기준 상대 경로
-    const res = await fetch('games/games.json', {cache:'no-store'});
+    // index.html 과 같은 폴더에 있는 games.json 을 읽어옵니다.
+    const res = await fetch('games.json', {cache:'no-store'});
 
     if (!res.ok) {
       throw new Error('파일을 찾을 수 없습니다. HTTP Status: ' + res.status);
@@ -142,8 +142,8 @@
         margin-top:20px;">
         <strong style="color:#fff;">⚠️ 게임 목록을 불러오지 못했습니다.</strong>
         <p style="margin-top:8px;">
-          이 HTML 파일과 같은 폴더에 <code>games</code> 폴더가 있고,
-          그 안에 <code>games.json</code> 파일이 있는지 확인해주세요.
+          이 HTML 파일(<code>index.html</code>)과 같은 폴더에
+          <code>games.json</code> 파일이 있는지 확인해주세요.
         </p>
         <div style="font-size:13px;margin-top:8px;color:#ccc;">
           (오류 상세: ${e.message || '네트워크 연결 오류'})
