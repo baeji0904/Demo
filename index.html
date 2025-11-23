@@ -6,503 +6,350 @@
 <title>Demo_Game</title>
 <style>
   :root{
-    --bg:#050816;
-    --bg2:#020617;
-    --ink:#e9edff;
+    --bg:#050818;
+    --bg2:#070c21;
+    --panel:#0b1024;
+    --ink:#eef2ff;
     --muted:#9aa3c7;
-    --card:#101827;
-    --accent:#ffcd3c;
-    --accent2:#22d3ee;
-    --accent3:#fb7185;
+    --accent:#7b8cff;
+    --accent2:#22c55e;
+    --danger:#f97373;
+    --border:#1f2937;
+    --chip:#111827;
   }
-
-  *{box-sizing:border-box;}
-
+  *{box-sizing:border-box;margin:0;padding:0}
   html,body{
-    margin:0;
-    height:100%;
-    background:
-      radial-gradient(circle at top,#1e293b 0,#020617 55%,#000 100%);
+    background:radial-gradient(900px 600px at 10% 0%,#1d2144 0,#050816 60%,#020312 100%);
     color:var(--ink);
-    font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto;
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto;
   }
-
   body{
+    min-height:100vh;
     display:flex;
     justify-content:center;
-    align-items:stretch;
   }
-
   .page{
     width:100%;
     max-width:1200px;
-    margin:0 auto;
-    padding:12px 10px 24px;
+    padding:16px;
   }
 
-  /* ========== TOP BAR ========== */
-  .topbar{
-    background:linear-gradient(90deg,#1e293b,#020617);
-    border-radius:16px;
-    padding:10px 16px;
-    border:1px solid rgba(15,23,42,.9);
-    box-shadow:0 12px 30px rgba(15,23,42,.9);
+  header{
     display:flex;
     align-items:center;
     justify-content:space-between;
-    gap:18px;
-    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:14px;
   }
-
   .brand{
     display:flex;
     align-items:center;
     gap:10px;
   }
+  .brand-icon{
+    width:32px;height:32px;border-radius:999px;
+    background:conic-gradient(from 200deg,#22c1c3,#4b6bff,#ff3cac,#22c1c3);
+    display:grid;place-items:center;
+    box-shadow:0 0 18px rgba(120,113,255,.6);
+  }
+  .brand-icon span{font-size:14px}
+  .brand-text{display:flex;flex-direction:column}
+  .brand-title{font-weight:700;font-size:18px}
+  .brand-sub{font-size:12px;color:var(--muted)}
 
-  .rocket{
-    width:32px;
-    height:32px;
-    border-radius:12px;
-    background:conic-gradient(from 210deg,#fb7185,#f97316,#22d3ee,#4f46e5,#fb7185);
+  .nav-chips{
     display:flex;
-    align-items:center;
-    justify-content:center;
-    box-shadow:0 0 0 2px #020617,0 8px 18px rgba(0,0,0,.7);
-  }
-  .rocket::before{
-    content:'🚀';
-    font-size:18px;
-  }
-
-  .brand-text h1{
-    margin:0;
-    font-size:22px;
-    letter-spacing:.06em;
-  }
-  .brand-text .sub{
-    font-size:12px;
-    color:#cbd5f5;
-  }
-
-  .nav{
-    display:flex;
-    gap:10px;
+    gap:8px;
     flex-wrap:wrap;
-    font-size:13px;
+    justify-content:flex-end;
   }
-  .nav span{
-    padding:4px 10px;
+  .chip-btn{
     border-radius:999px;
-    color:#cbd5f5;
-    cursor:default;
-    background:rgba(15,23,42,.6);
-    border:1px solid rgba(55,65,81,.9);
+    padding:6px 12px;
+    border:1px solid rgba(148,163,184,.4);
+    background:rgba(15,23,42,.85);
+    color:var(--muted);
+    font-size:12px;
+    cursor:pointer;
   }
 
-  /* ========== HERO ========== */
   .hero{
-    margin-top:14px;
+    background:radial-gradient(900px 500px at 0% 0%,rgba(129,140,248,.35),transparent 60%),
+               radial-gradient(600px 400px at 100% 0%,rgba(45,212,191,.28),transparent 60%),
+               #050816;
+    border-radius:22px;
+    border:1px solid rgba(148,163,184,.35);
+    padding:18px;
     display:grid;
-    grid-template-columns:minmax(0,1.7fr) minmax(0,1.1fr);
-    gap:14px;
+    grid-template-columns:minmax(0,1.5fr) minmax(0,1.2fr);
+    gap:16px;
+    margin-bottom:18px;
+    box-shadow:0 20px 55px rgba(15,23,42,.8);
   }
-
-  @media (max-width:760px){
-    .hero{
-      grid-template-columns:1fr;
-    }
-  }
-
-  .hero-main{
-    position:relative;
-    border-radius:20px;
-    padding:16px 18px;
-    background:
-      radial-gradient(circle at top,#4f46e5 0,transparent 55%),
-      radial-gradient(circle at bottom,#fb7185 0,transparent 60%),
-      #020617;
-    border:1px solid rgba(129,140,248,.6);
-    box-shadow:0 18px 44px rgba(15,23,42,1);
-    overflow:hidden;
-  }
-  .hero-label{
+  .hero-kicker{
     display:inline-flex;
     align-items:center;
-    gap:6px;
-    padding:3px 10px;
+    gap:8px;
+    background:rgba(15,23,42,.95);
     border-radius:999px;
+    padding:5px 10px;
+    border:1px solid rgba(55,65,81,.8);
     font-size:11px;
-    background:rgba(15,23,42,.7);
-    border:1px solid rgba(248,250,252,.2);
+    color:var(--muted);
+    margin-bottom:10px;
   }
-  .hero-label span:nth-child(1){
-    width:6px;height:6px;border-radius:999px;
-    background:#22c55e;
+  .hero-kicker span:last-child{color:#a5b4fc;font-weight:600}
+  .hero-main-title{
+    font-size:22px;font-weight:800;letter-spacing:.02em;margin-bottom:6px;
   }
-  .hero-title{
-    margin:10px 0 4px;
-    font-size:24px;
-  }
-  .hero-tagline{
-    font-size:13px;
-    color:#e5e7eb;
-    max-width:420px;
+  .hero-text{
+    font-size:13px;color:#cbd5ff;margin-bottom:10px;
   }
   .hero-badges{
-    margin-top:10px;
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
+    display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;
   }
-  .hero-badge{
-    padding:4px 10px;
-    font-size:12px;
+  .pill{
     border-radius:999px;
-    background:rgba(15,23,42,.85);
-    border:1px solid rgba(148,163,255,.5);
+    background:rgba(15,23,42,.9);
+    border:1px solid rgba(148,163,184,.5);
+    padding:4px 9px;
+    font-size:11px;
+    color:var(--muted);
   }
-
-  .hero-spark{
-    position:absolute;
-    right:-18px;
-    bottom:-16px;
-    width:210px;
-    height:140px;
-    border-radius:50%;
-    background:radial-gradient(circle at 20% 0,#fef08a 0,rgba(248,250,252,0) 55%),
-               radial-gradient(circle at 50% 90%,#22d3ee 0,rgba(248,250,252,0) 60%),
-               radial-gradient(circle at 0 60%,#fb7185 0,rgba(248,250,252,0) 55%);
-    opacity:.9;
-    filter:blur(1px);
-  }
-
-  /* 오른쪽 패널 */
-  .hero-side{
-    border-radius:20px;
-    background:radial-gradient(circle at top,#0f172a 0,#020617 70%);
-    border:1px solid rgba(30,64,175,.8);
-    padding:10px 12px 12px;
-    box-shadow:0 16px 36px rgba(15,23,42,.9);
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-  }
-  .hero-side-title{
+  .hero-buttons{display:flex;flex-wrap:wrap;gap:8px}
+  .btn-primary{
+    border:none;
+    border-radius:999px;
+    padding:8px 16px;
     font-size:13px;
     font-weight:600;
-    margin-bottom:2px;
+    cursor:pointer;
+    background:linear-gradient(135deg,#22c55e,#16a34a);
+    color:#022c22;
+    box-shadow:0 12px 30px rgba(34,197,94,.45);
   }
-  .hero-side-desc{
-    font-size:12px;
-    color:#cbd5f5;
-  }
-  .hero-side-row{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-  }
-  .chip{
-    font-size:11px;
-    padding:4px 9px;
+  .btn-ghost{
     border-radius:999px;
-    background:#020617;
-    border:1px solid rgba(55,65,81,.9);
-    color:#cbd5f5;
-  }
-
-  .counter{
-    margin-top:2px;
+    border:1px solid rgba(148,163,184,.6);
+    padding:8px 13px;
+    background:rgba(15,23,42,.9);
+    color:var(--muted);
     font-size:12px;
-    color:#9ca3af;
+    cursor:pointer;
   }
 
-  /* 검색 박스 */
-  .search-wrap{
-    margin-top:14px;
+  .hero-right{
+    border-radius:18px;
+    background:
+      radial-gradient(circle at 10% 0%,rgba(244,244,255,.5),transparent 40%),
+      radial-gradient(circle at 90% 100%,rgba(59,130,246,.45),transparent 50%),
+      linear-gradient(135deg,#020617,#020617 30%,#0b1120);
+    position:relative;
+    overflow:hidden;
+    min-height:150px;
+    padding:16px;
+  }
+  .hero-tag{
+    position:absolute;top:12px;left:14px;
+    font-size:11px;color:#e5e7eb;opacity:.85;
+  }
+  .hero-graphic{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .hero-bar{
+    width:140px;height:140px;border-radius:32px;
+    background:conic-gradient(from 210deg,#22c1c3,#4b6bff,#ff3cac,#22c1c3);
+    filter:blur(1px);opacity:.9;
+  }
+  .hero-overlay{
+    position:absolute;inset:0;
+    background:radial-gradient(circle at 30% 0%,rgba(15,23,42,.0),rgba(15,23,42,.7) 58%);
+  }
+
+  .toolbar{
     display:flex;
     align-items:center;
-    gap:10px;
+    justify-content:space-between;
     flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:14px;
   }
-
-  .search-inner{
-    position:relative;
-    flex:1 1 260px;
-    max-width:350px;
-  }
+  .search-group{position:relative;flex:1 1 260px;max-width:420px}
   .search-input{
     width:100%;
+    padding:8px 32px 8px 32px;
+    border-radius:999px;
+    border:1px solid rgba(75,85,99,.9);
     background:rgba(15,23,42,.9);
-    border:1px solid #1f2937;
-    border-radius:999px;
     color:var(--ink);
-    padding:9px 34px 9px 32px;
-    font-size:14px;
-    outline:none;
-    box-shadow:0 0 0 1px rgba(15,23,42,.7),0 10px 26px rgba(15,23,42,.9);
-    transition:border-color .18s, box-shadow .18s, background-color .18s;
+    font-size:13px;
   }
-  .search-input::placeholder{color:#6b7280;}
-  .search-input:focus{
-    border-color:#38bdf8;
-    box-shadow:0 0 0 1px rgba(56,189,248,.9),0 12px 30px rgba(15,23,42,1);
-    background:#020617;
-  }
+  .search-input::placeholder{color:rgba(148,163,184,.8)}
   .search-icon{
-    position:absolute;
-    left:10px;
-    top:50%;
-    transform:translateY(-50%);
-    width:16px;
-    height:16px;
-    border-radius:999px;
-    border:2px solid #9ca3af;
+    position:absolute;left:10px;top:50%;transform:translateY(-50%);
+    font-size:15px;opacity:.7;
   }
-  .search-icon::after{
-    content:'';
-    position:absolute;
-    right:-4px;
-    bottom:-4px;
-    width:7px;
-    height:2px;
-    border-radius:999px;
-    background:#9ca3af;
-    transform:rotate(40deg);
-  }
+  .search-help{font-size:11px;color:var(--muted);margin-top:3px}
 
-  .search-note{
-    font-size:12px;
-    color:#9ca3c7;
-  }
-
-  /* 카테고리 필터 */
-  .categories{
-    margin-top:10px;
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
-  }
-  .cat-btn{
-    font-size:11px;
+  .filter-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .filter-chip{
+    border-radius:999px;
+    border:1px solid rgba(75,85,99,.9);
     padding:4px 10px;
-    border-radius:999px;
-    border:1px solid rgba(55,65,81,.9);
-    background:rgba(15,23,42,.8);
-    color:#cbd5f5;
+    font-size:11px;
+    color:var(--muted);
     cursor:pointer;
-    transition:background .15s, border-color .15s, transform .1s;
+    background:rgba(15,23,42,.9);
   }
-  .cat-btn:hover{
-    transform:translateY(-1px);
-    border-color:rgba(96,165,250,.9);
-  }
-  .cat-btn.active{
-    background:linear-gradient(135deg,#fb7185,#f97316);
-    border-color:rgba(254,240,138,.9);
-    color:#111827;
+  .filter-chip.active{
+    background:rgba(59,130,246,.15);
+    border-color:#60a5fa;
+    color:#e5e7eb;
   }
 
-  /* 게임 섹션 */
-  .section-title{
-    margin-top:18px;
-    font-size:18px;
-    font-weight:700;
-    text-align:center;
-    letter-spacing:.08em;
+  h2.section-title{
+    font-size:16px;font-weight:700;margin:10px 0 6px;letter-spacing:.08em;
   }
 
   .grid{
     display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
-    gap:16px;
-    margin-top:12px;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+    gap:14px;
+    margin-top:6px;
+    margin-bottom:26px;
   }
 
   .card{
-    background:radial-gradient(circle at top,#1d283a 0,rgba(15,23,42,1) 60%);
+    background:linear-gradient(135deg,#020617,#020617 50%,#020920);
     border-radius:18px;
+    border:1px solid rgba(30,64,175,.7);
     overflow:hidden;
-    border:2px solid rgba(15,23,42,.9);
-    box-shadow:0 12px 32px rgba(15,23,42,1);
     display:flex;
     flex-direction:column;
-    transition:transform .16s ease-out, box-shadow .16s ease-out, border-color .16s ease-out;
+    box-shadow:0 12px 35px rgba(15,23,42,.85);
   }
-  .card:hover{
-    transform:translateY(-4px);
-    border-color:rgba(251,191,36,.95);
-    box-shadow:0 18px 42px rgba(0,0,0,1);
-  }
-
   .thumb{
-    position:relative;
     width:100%;
-    aspect-ratio:4/3;
-    background:#020617;
-    display:grid;
-    place-items:center;
-    font-size:12px;
-    color:#7aa2ff;
-    overflow:hidden;
-  }
-  .thumb img{
-    width:100%;
-    height:100%;
+    aspect-ratio:16/9;
     object-fit:cover;
-    display:block;
+    background:radial-gradient(circle at 0 0,#1d4ed8,transparent 60%),
+               radial-gradient(circle at 100% 100%,#22c55e,transparent 60%),
+               #020617;
   }
-  .thumb-overlay{
-    position:absolute;
-    inset:0;
-    background:linear-gradient(to top,rgba(0,0,0,.65),transparent 55%);
+  .thumb-placeholder{
+    display:grid;place-items:center;
+    font-size:12px;color:#a5b4fc;
   }
-  .thumb-title{
-    position:absolute;
-    left:10px;
-    bottom:8px;
-    font-weight:700;
-    font-size:14px;
-    text-shadow:0 2px 6px rgba(0,0,0,.8);
-  }
-
-  .meta{
-    padding:10px 11px 6px;
-    flex:1 1 auto;
-    display:flex;
-    flex-direction:column;
-  }
-
-  .desc{
-    color:var(--muted);
-    font-size:12px;
-    margin:0 0 8px;
-    min-height:2.6em;
-  }
-
-  .tags{
-    display:flex;
-    flex-wrap:wrap;
-    gap:4px;
-    margin-bottom:8px;
-  }
+  .meta{padding:10px 12px 8px}
+  .title{font-size:14px;font-weight:700}
+  .desc{font-size:12px;color:var(--muted);margin-top:3px;margin-bottom:8px}
+  .tag-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
   .tag-pill{
-    font-size:11px;
-    color:#e0f2fe;
-    background:rgba(37,99,235,.9);
-    padding:2px 7px 3px;
+    font-size:10px;
+    padding:3px 7px;
     border-radius:999px;
-    border:1px solid rgba(191,219,254,.7);
+    background:rgba(15,23,42,.9);
+    color:#a5b4fc;
+    border:1px solid rgba(79,70,229,.6);
   }
-
-  .btn-play{
+  .play-btn{
     margin:0 10px 10px;
-    padding:7px 10px 8px;
-    text-align:center;
-    background:linear-gradient(135deg,#22c55e,#16a34a);
+    padding:7px 10px;
     border-radius:999px;
-    color:#ecfdf5;
-    text-decoration:none;
-    font-size:13px;
-    font-weight:600;
-    box-shadow:0 8px 20px rgba(22,163,74,.65);
-    transition:transform .12s, box-shadow .12s, filter .12s;
-  }
-  .btn-play:hover{
-    transform:translateY(-1px);
-    filter:brightness(1.04);
-    box-shadow:0 10px 26px rgba(22,163,74,.75);
-  }
-  .btn-play:active{
-    transform:translateY(0);
-    box-shadow:0 6px 16px rgba(22,163,74,.6);
-    filter:brightness(.98);
-  }
-
-  footer{
-    margin-top:18px;
+    border:none;
+    background:linear-gradient(135deg,#22c55e,#16a34a);
+    color:#022c22;
     font-size:12px;
-    color:var(--muted);
-    text-align:center;
-    border-top:1px solid rgba(15,23,42,.9);
-    padding-top:10px;
+    font-weight:600;
+    cursor:pointer;
   }
 
-  /* 에러 메시지 */
-  .error-box{
-    margin-top:18px;
-    padding:18px 16px;
-    border-radius:14px;
-    background:rgba(127,29,29,.35);
-    border:1px solid #7f1d1d;
-    box-shadow:0 12px 30px rgba(15,23,42,1);
-  }
-  .error-title{
-    font-weight:700;
-    color:#fee2e2;
-    margin-bottom:6px;
-  }
-  .error-body{
-    font-size:13px;
+  footer{font-size:11px;color:var(--muted);margin-bottom:4px}
+
+  .error-card{
+    max-width:360px;
+    min-width:260px;
+    background:#1b0b0e;
+    border-radius:16px;
+    border:1px solid rgba(248,113,113,.7);
+    padding:14px;
     color:#fecaca;
+    font-size:13px;
+    line-height:1.5;
+    white-space:normal;
+    word-break:keep-all;
   }
-  .error-detail{
-    font-size:11px;
-    margin-top:6px;
-    color:#fed7aa;
-    word-break:break-all;
+  .error-card strong{color:#fee2e2}
+  .error-card small{font-size:11px;color:#fca5a5}
+
+  @media (max-width:840px){
+    .hero{grid-template-columns:1fr}
+    .hero-right{order:-1;min-height:160px}
   }
 </style>
 </head>
 <body>
 <div class="page">
-  <!-- 상단 바 -->
-  <div class="topbar">
+  <header>
     <div class="brand">
-      <div class="rocket" aria-음 🎮</h2>
-      <p class="hero-tagline">
+      <div class="brand-icon"><span>🎮</span></div>
+      <div class="brand-text">
+        <div class="brand-title">Demo_Game</div>
+        <div class="brand-sub">HTML5 미니 게임 컬렉션</div>
+      </div>
+    </div>
+    <div class="nav-chips">
+      <button class="chip-btn">TOP 게임</button>
+      <button class="chip-btn">퍼즐</button>
+      <button class="chip-btn">보드게임</button>
+      <button class="chip-btn">두뇌운동</button>
+      <button class="chip-btn">반응속도</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <div class="hero-kicker">
+        <span>NEW</span><span>브라우저에서 바로 플레이</span>
+      </div>
+      <h2 class="hero-main-title">무료 HTML5 게임으로 쉬어가기 🎆</h2>
+      <p class="hero-text">
         터치/키보드만 있으면 바로 즐길 수 있는 작은 게임들을 모아 두었어요.
         아이들이나 학생들과 함께 가볍게 플레이해 보세요.
       </p>
       <div class="hero-badges">
-        <div class="hero-badge">모바일 / PC 지원</div>
-        <div class="hero-badge">직접 만든 미니게임</div>
+        <span class="pill">퍼즐</span>
+        <span class="pill">보드게임</span>
+        <span class="pill">두뇌운동</span>
+        <span class="pill">반응속도</span>
       </div>
-      <div class="hero-spark" aria-hidden="true"></div>
+      <div class="hero-buttons">
+        <button class="btn-primary" id="btn-scroll-grid">지금 바로 둘러보기</button>
+        <button class="btn-ghost">직접 만든 미니게임</button>
+      </div>
     </div>
-    <aside class="hero-side">
-      <div>
-        <div class="hero-side-title">게임 분류 예시</div>
-        <div class="hero-side-row">
-          <span class="chip">퍼즐</span>
-          <span class="chip">보드게임</span>
-          <span class="chip">두뇌운동</span>
-          <span class="chip">반응속도</span>
-        </div>
-      </div>
-      <div>
-        <div class="hero-side-title">검색 팁</div>
-        <p class="hero-side-desc">
-          게임 제목이나 태그(예: <strong>스도쿠</strong>, <strong>고누</strong>, <strong>테트리스</strong>)로 검색해 보세요.
-        </p>
-      </div>
-      <div id="counter" class="counter">총 0개의 게임이 준비되어 있습니다.</div>
-    </aside>
+    <div class="hero-right">
+      <div class="hero-tag">Enjoy my games!</div>
+      <div class="hero-graphic"><div class="hero-bar"></div></div>
+      <div class="hero-overlay"></div>
+    </div>
   </section>
 
-  <!-- 검색 & 카테고리 -->
-  <section class="search-wrap" aria-label="검색 및 필터">
-    <div class="search-inner">
-      <span class="search-icon" aria-hidden="true"></span>
+  <section class="toolbar">
+    <div class="search-group">
+      <span class="search-icon">🔍</span>
       <input id="q" class="search-input" type="search" placeholder="게임 검색… (이름, 태그)">
+      <div class="search-help" id="game-count-text"></div>
     </div>
-    <div class="search-note">검색어와 아래 카테고리 버튼을 함께 사용해 보세요.</div>
+    <div class="filter-chips" id="tag-filters">
+      <button class="filter-chip active" data-tag="all">전체</button>
+      <button class="filter-chip" data-tag="브레이크아웃">브레이크아웃</button>
+      <button class="filter-chip" data-tag="보드">보드</button>
+      <button class="filter-chip" data-tag="퍼즐">퍼즐</button>
+      <button class="filter-chip" data-tag="슈팅">슈팅</button>
+      <button class="filter-chip" data-tag="AI">AI</button>
+    </div>
   </section>
 
-  <div id="categories" class="categories" aria-label="카테고리 필터"></div>
-
-  <!-- 게임 목록 -->
-  <h2 class="section-title">ENJOY MY GAMES!</h2>
+  <h2 class="section-title">PLAY FREE HTML5 GAMES!</h2>
   <div id="grid" class="grid" aria-live="polite"></div>
 
   <footer>© 2024 Demo_Game — HTML5 데모 모음</footer>
@@ -510,144 +357,95 @@
 
 <script>
 (async function(){
-  const grid = document.getElementById('grid');
-  const q = document.getElementById('q');
-  const categoriesEl = document.getElementById('categories');
-  const counterEl = document.getElementById('counter');
+  const JSON_PATH = 'games/games.json';   // ★ games/games.json 사용
+
+  const grid   = document.getElementById('grid');
+  const q      = document.getElementById('q');
+  const countText = document.getElementById('game-count-text');
+  const filterBar = document.getElementById('tag-filters');
+  const btnScroll = document.getElementById('btn-scroll-grid');
+
   let games = [];
-  let activeTag = 'all';
-
-  async function fetchWithRetry(){
-    const candidates = [
-      'games.json',
-      './games.json',
-      'games/games.json',
-      './games/games.json'
-    ];
-    const errors = [];
-
-    for(const url of candidates){
-      try{
-        const res = await fetch(url,{cache:'no-store'});
-        if(res.ok){
-          console.log('[Demo_Game] games.json loaded from', url);
-          return res.json();
-        }else{
-          errors.push(`${url} → HTTP ${res.status}`);
-        }
-      }catch(err){
-        errors.push(`${url} → ${err.message}`);
-      }
-    }
-    throw new Error(errors.join(' | '));
-  }
+  let currentTag = 'all';
 
   try{
-    games = await fetchWithRetry();
+    const res = await fetch(JSON_PATH, {cache:'no-store'});
+    if(!res.ok){
+      throw new Error('파일을 찾을 수 없습니다. HTTP Status: '+res.status);
+    }
+    games = await res.json();
+    console.log('[Demo_Game] games.json loaded from', JSON_PATH);
   }catch(e){
-    grid.innerHTML = `
-      <div class="error-box">
-        <div class="error-title">⚠ 게임 목록 (<code>games.json</code>)을 불러오지 못했습니다.</div>
-        <div class="error-body">
-          이 파일(<code>index.html</code>)과 같은 폴더에
-          <code>games.json</code>이 있거나,<br/>
-          하위 폴더 <code>games/games.json</code> 위치에 있는지 확인해주세요.
-        </div>
-        <div class="error-detail">시도한 경로: ${e.message}</div>
-      </div>`;
     console.error(e);
-    counterEl.textContent = '게임 데이터를 불러오지 못했습니다.';
+    grid.innerHTML = `
+      <div class="error-card">
+        <strong>⚠ 게임 목록 (<code>${JSON_PATH}</code>)을 불러오지 못했습니다.</strong>
+        <p style="margin-top:6px;">
+          <code>index.html</code>이 있는 폴더 아래의
+          <code>games/games.json</code> 경로에 파일이 있는지 확인해주세요.
+        </p>
+        <small>(오류 상세: ${e.message || '네트워크 / CORS 오류'})</small>
+      </div>
+    `;
+    countText.textContent = '';
     return;
   }
 
-  counterEl.textContent = `총 ${games.length}개의 게임이 준비되어 있습니다.`;
-
-  // ----- 카테고리 버튼 생성 -----
-  function buildCategories(){
-    const tagSet = new Set();
-    games.forEach(g => (g.tags || []).forEach(t => tagSet.add(t)));
-
-    const tags = Array.from(tagSet);
-    const btns = [];
-
-    btns.push(`<button class="cat-btn active" data-tag="all">전체</button>`);
-
-    tags.forEach(tag=>{
-      btns.push(`<button class="cat-btn" data-tag="${tag}">${tag}</button>`);
-    });
-
-    categoriesEl.innerHTML = btns.join('');
-    categoriesEl.addEventListener('click', e=>{
-      if(e.target.matches('.cat-btn')){
-        document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
-        e.target.classList.add('active');
-        activeTag = e.target.dataset.tag;
-        applyFilters();
-      }
-    });
-  }
-
-  // ----- 카드 렌더링 -----
-  const card = (g) => {
-    const tags = (g.tags || []).map(t =>
-      `<span class="tag-pill">${t}</span>`
-    ).join('');
-
-    const thumb = g.thumb
-      ? `<div class="thumb">
-            <img src="${g.thumb}" alt="">
-            <div class="thumb-overlay"></div>
-            <div class="thumb-title">${g.title}</div>
-         </div>`
-      : `<div class="thumb">
-            <div class="thumb-overlay"></div>
-            <div class="thumb-title">${g.title}</div>
-         </div>`;
-
+  function buildCard(g){
+    const thumbHtml = g.thumb
+      ? `<img class="thumb" src="${g.thumb}" alt="">`
+      : `<div class="thumb thumb-placeholder">No Thumbnail</div>`;
+    const tagsHtml = (g.tags || []).map(t => `<span class="tag-pill">${t}</span>`).join('');
     return `
       <article class="card">
-        ${thumb}
+        ${thumbHtml}
         <div class="meta">
+          <div class="title">${g.title}</div>
           <p class="desc">${g.desc || ''}</p>
-          ${tags ? `<div class="tags">${tags}</div>` : ''}
+          <div class="tag-row">${tagsHtml}</div>
         </div>
-        <a class="btn-play" href="${g.url}" target="_blank" rel="noopener">PLAY NOW!</a>
+        <div style="padding-bottom:6px;">
+          <button class="play-btn" onclick="window.open('${g.url}','_blank')">PLAY NOW!</button>
+        </div>
       </article>
     `;
-  };
+  }
 
-  const render = (list) => {
-    grid.innerHTML =
-      list.map(card).join('') ||
-      '<div style="color:#9aa3c7;font-size:14px;">검색 결과가 없습니다.</div>';
-  };
-
-  // ----- 필터 함수 -----
-  function filteredGames(){
-    const text = q.value.trim().toLowerCase();
+  function applyFilter(text, tag){
+    const t = text.trim().toLowerCase();
     return games.filter(g=>{
-      const matchText = !text ||
-        (g.title + ' ' + (g.desc || '') + ' ' + (g.tags || []).join(' '))
-          .toLowerCase()
-          .includes(text);
-
-      const matchTag = activeTag === 'all' ||
-        (g.tags || []).includes(activeTag);
-
-      return matchText && matchTag;
+      if(tag !== 'all' && !(g.tags || []).includes(tag)) return false;
+      if(!t) return true;
+      const blob = (g.title+' '+(g.desc||'')+' '+(g.tags||[]).join(' ')).toLowerCase();
+      return blob.includes(t);
     });
   }
 
-  function applyFilters(){
-    render(filteredGames());
+  function render(){
+    const list = applyFilter(q.value, currentTag);
+    grid.innerHTML = list.length
+      ? list.map(buildCard).join('')
+      : `<div style="color:#9aa3c7;font-size:13px;">검색 결과가 없습니다.</div>`;
+    countText.textContent = `총 ${games.length}개의 게임이 준비되어 있습니다.`;
   }
 
-  q.addEventListener('input', applyFilters);
+  q.addEventListener('input', render);
 
-  buildCategories();
-  render(games);
+  filterBar.addEventListener('click', e=>{
+    const btn = e.target.closest('.filter-chip');
+    if(!btn) return;
+    [...filterBar.querySelectorAll('.filter-chip')]
+      .forEach(b=>b.classList.toggle('active', b===btn));
+    currentTag = btn.dataset.tag;
+    render();
+  });
+
+  btnScroll.addEventListener('click', ()=>{
+    grid.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+
+  render();
 })();
 </script>
 </body>
 </html>
-
