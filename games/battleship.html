@@ -399,12 +399,9 @@
     </div>
   </header>
 
-  <!-- 🔊 BGM: /BGM/Attack of The Trolls.mp3 사용 -->
-  <audio
-    id="bgm"
-    preload="auto"
-    loop
-    src="BGM/Attack of The Trolls.mp3">
+  <!-- 🔊 BGM: BGM/Attack of The Trolls.mp3 -->
+  <audio id="bgm" preload="auto" loop>
+    <source src="BGM/Attack of The Trolls.mp3" type="audio/mpeg">
   </audio>
 
   <div class="layout">
@@ -587,8 +584,11 @@
       setStatus('BGM 오디오 요소를 찾을 수 없습니다.','bad');
       return;
     }
-    if(!bgmAudio.src){
-      setStatus('BGM 경로가 비어 있습니다. audio 태그 src를 확인해 주세요.','bad');
+
+    // 주의: src는 source 태그 쪽에 있으므로, 단순히 존재 여부만 체크
+    const hasSource = bgmAudio.querySelector('source');
+    if(!hasSource){
+      setStatus('BGM 소스를 찾을 수 없습니다. audio 태그 안의 source를 확인해 주세요.','bad');
       return;
     }
 
@@ -600,7 +600,7 @@
         })
         .catch(err=>{
           console.warn('BGM 재생 실패:', err);
-          setStatus('브라우저가 자동 재생을 막았거나, BGM 파일 경로에 문제가 있습니다. 한 번 더 눌러 보거나, 파일 위치를 확인해 주세요.','');
+          setStatus('브라우저가 자동 재생을 막았거나, BGM 파일 경로에 문제가 있습니다. 한 번 더 눌러보거나, 파일 위치/이름을 확인해 주세요.','');
         });
     }else{
       bgmAudio.pause();
