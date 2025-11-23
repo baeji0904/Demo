@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>프리셀</title>
+<style>
+  :root{
+    --bg:#050816;
+    --panel:#090e1f;
+    --ink:#e9edff;
+    --muted:#9aa3c7;
+    --line:#222747;
+    --accent:#7aa2ff;
+    --accent2:#22c55e;
+    --danger:#fb7185;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    background:radial-gradient(circle at top,#151b3c 0,#050816 55%);
+    color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto;
+  }
+  .wrap{
+    max-width:1024px;
+    margin:0 auto;
+    padding:16px;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:8px;
+  }
+  h1{
+    margin:0;
+    font-size:22px;
+    letter-spacing:0.02em;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  h1 span.logo-dot{
+    width:24px;
+    height:24px;
+    border-radius:999px;
+    background:radial-gradient(circle at 30% 20%,#f97316,#ec4899);
+    box-shadow:0 0 16px rgba(236,72,153,.9);
+  }
+  .subtitle{
+    font-size:12px;
+    color:var(--muted);
+  }
+  .row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .btn{
+    padding:8px 12px;
+    border:1px solid #2a315e;
+    border-radius:999px;
+    background:#111834;
+    color:var(--ink);
+    cursor:pointer;
+    font-size:13px;
+    line-height:1.2;
+    white-space:nowrap;
+  }
+  .btn-primary{
+    background:linear-gradient(180deg,#3650ff,#2330b7);
+    border-color:#4a5bff;
+  }
+  .btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+  }
+  .btn-pill{
+    background:#0f172a;
+  }
+  .btn-pill.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  .layout{
+    display:grid;
+    grid-template-columns:minmax(0,3fr) minmax(0,2.3fr);
+    gap:14px;
+  }
+  @media (max-width:880px){
+    .layout{grid-template-columns:1fr;}
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:14px;
+    box-shadow:0 18px 40px rgba(0,0,0,.8);
+  }
+  .game-shell{
+    background:#020414;
+    border-radius:16px;
+    padding:10px;
+    border:1px solid #181e3a;
+  }
+  .hud{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin:8px 0 6px;
+  }
+  .tag{
+    display:inline-flex;
+    gap:6px;
+    align-items:center;
+    padding:6px 10px;
+    border:1px solid #2b325c;
+    border-radius:999px;
+    background:#10152f;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .tag b{
+    font-weight:600;
+    color:var(--ink);
+    min-width:2ch;
+    text-align:right;
+  }
+  .pill-label{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 8px;
+    border-radius:999px;
+    border:1px solid #334155;
+    background:#020617;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .big-btn{
+    width:100%;
+    margin-top:8px;
+    padding:10px 12px;
+    border-radius:999px;
+    border:1px solid #166534;
+    background:linear-gradient(180deg,#22c55e,#15803d);
+    color:#022c22;
+    font-weight:600;
+    text-align:center;
+    cursor:pointer;
+  }
+  .big-btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+  }
+  .status-msg{
+    margin-top:6px;
+    font-size:13px;
+    color:var(--muted);
+    min-height:18px;
+  }
+  .status-msg.positive{color:#4ade80;}
+  .status-msg.negative{color:var(--danger);}
+
+  .hint{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:6px;
+  }
+  .hint ul{
+    padding-left:18px;
+    margin:4px 0 0;
+  }
+  .hint li{margin-bottom:2px;}
+
+  footer{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:14px;
+    text-align:left;
+  }
+
+  /* --- 프리셀 전용 보드 / 카드 스타일 --- */
+  .board{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .board-top{
+    display:grid;
+    grid-template-columns:repeat(4,1fr) 16px repeat(4,1fr);
+    gap:8px;
+    margin-bottom:4px;
+  }
+  .board-bottom{
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    gap:8px;
+    min-height:260px;
+  }
+  .pile{
+    position:relative;
+    padding:6px;
+    border-radius:12px;
+    border:1px dashed #1f2937;
+    background:radial-gradient(circle at top,#020617,#020314);
+    box-shadow:0 10px 25px rgba(0,0,0,.6);
+  }
+  .pile.pile-foundation{
+    border-style:solid;
+    border-color:#4b5563;
+  }
+  .pile-label{
+    font-size:11px;
+    color:var(--muted);
+    margin-bottom:4px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .pile-label .symbol{
+    font-size:14px;
+  }
+  .pile-body{
+    position:relative;
+    min-height:80px;
+  }
+  .board-bottom .pile .pile-body{
+    min-height:220px;
+  }
+
+  .card{
+    position:absolute;
+    left:0;
+    right:0;
+    margin:0 auto;
+    width:100%;
+    max-width:80px;
+    aspect-ratio:3/4;
+    border-radius:10px;
+    background:radial-gradient(circle at top,#f9fafb,#e5e7eb);
+    box-shadow:0 8px 18px rgba(15,23,42,0.8);
+    border:1px solid #e5e7eb;
+    padding:4px 6px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    cursor:pointer;
+    transition:transform .08s ease-out, box-shadow .08s ease-out;
+  }
+  .card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 24px rgba(15,23,42,0.9);
+  }
+  .card.red{
+    color:#ef4444;
+  }
+  .card.black{
+    color:#0f172a;
+  }
+
+  /* 여기서부터: 카드 안 글자 드래그 방지 */
+  .card, .card *{
+    -webkit-user-select:none;
+    -moz-user-select:none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+
+  .card-rank{
+    font-size:14px;
+    font-weight:700;
+  }
+  .card-suit{
+    font-size:16px;
+    align-self:flex-end;
+  }
+  .card-center{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+    opacity:.3;
+  }
+  .card.selected{
+    outline:2px solid var(--accent);
+    box-shadow:0 0 0 2px #1d4ed8,0 16px 32px rgba(59,130,246,0.65);
+  }
+  .pile-empty-hint{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:18px;
+    color:#1f2937;
+    opacity:.35;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="logo-dot"></span>네온 프리셀</h1>
+      <div class="subtitle">랜덤 타워 디펜스와 동일한 UI 톤의 HTML5 프리셀 카드 게임</div>
+    </div>
+    <div class="row">
+      <button id="btn-new" class="btn btn-primary">새 게임</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- 왼쪽 : 게임 화면 -->
+    <section class="panel">
+      <div class="hud">
+        <span class="tag">이동 수 <b id="moves">0</b></span>
+        <span class="tag">경과 시간 <b id="time">0:00</b></span>
+        <span class="tag">상태 <b id="state">플레이 중</b></span>
+      </div>
+
+      <div class="game-shell">
+        <div id="board" class="board">
+          <div class="board-top">
+            <!-- Free cells -->
+            <div class="pile pile-free" data-pile-type="free" data-index="0">
+              <div class="pile-label"><span>FREE 1</span></div>
+              <div class="pile-body"></div>
+              <div class="pile-empty-hint">★</div>
+            </div>
+            <div class="pile pile-free" data-pile-type="free" data-index="1">
+              <div class="pile-label"><span>FREE 2</span></div>
+              <div class="pile-body"></div>
+              <div class="pile-empty-hint">★</div>
+            </div>
+            <div class="pile pile-free" data-pile-type="free" data-index="2">
+              <div class="pile-label"><span>FREE 3</span></div>
+              <div class="pile-body"></div>
+              <div class="pile-empty-hint">★</div>
+            </div>
+            <div class="pile pile-free" data-pile-type="free" data-index="3">
+              <div class="pile-label"><span>FREE 4</span></div>
+              <div class="pile-body"></div>
+              <div class="pile-empty-hint">★</div>
+            </div>
+
+            <div></div> <!-- spacer -->
+
+            <!-- Foundations (스페이드 / 하트 / 클로버 / 다이아몬드) -->
+            <div class="pile pile-foundation" data-pile-type="foundation" data-index="0">
+              <div class="pile-label">
+                <span>기초 1</span><span class="symbol">♠</span>
+              </div>
+              <div class="pile-body"></div>
+              <div class="pile-empty-hint">A</div>
+            </div>
+            <div class="pile pile-foundation" data-pile-type="foundation" data-index="1">
+              <div class="pile-label">
+                <span>기초 2</span><span class="symbol">♥</span>
+              </div>
+              <div class="pile-body"></div>
+              <div class="pile-empty-hint">A</div>
+            </div>
+            <div class="pile pile-foundation" data-pile-type="foundation" data-index="2">
+              <div class="pile-label">
+                <span>기초 3</span><span class="symbol">♣</span>
+              </div>
+              <div class="pile-body"></div>
+              <div class="pile-empty-hint">A</div>
+            </div>
+            <div class="pile pile-foundation" data-pile-type="foundation" data-index="3">
+              <div class="pile-label">
+                <span>기초 4</span><span class="symbol">♦</span>
+              </div>
+              <div class="pile-body"></div>
+              <div class="pile-empty-hint">A</div>
+            </div>
+          </div>
+
+          <!-- Cascades -->
+          <div class="board-bottom">
+            <div class="pile pile-cascade" data-pile-type="cascade" data-index="0">
+              <div class="pile-label"><span>열 1</span></div>
+              <div class="pile-body"></div>
+            </div>
+            <div class="pile pile-cascade" data-pile-type="cascade" data-index="1">
+              <div class="pile-label"><span>열 2</span></div>
+              <div class="pile-body"></div>
+            </div>
+            <div class="pile pile-cascade" data-pile-type="cascade" data-index="2">
+              <div class="pile-label"><span>열 3</span></div>
+              <div class="pile-body"></div>
+            </div>
+            <div class="pile pile-cascade" data-pile-type="cascade" data-index="3">
+              <div class="pile-label"><span>열 4</span></div>
+              <div class="pile-body"></div>
+            </div>
+            <div class="pile pile-cascade" data-pile-type="cascade" data-index="4">
+              <div class="pile-label"><span>열 5</span></div>
+              <div class="pile-body"></div>
+            </div>
+            <div class="pile pile-cascade" data-pile-type="cascade" data-index="5">
+              <div class="pile-label"><span>열 6</span></div>
+              <div class="pile-body"></div>
+            </div>
+            <div class="pile pile-cascade" data-pile-type="cascade" data-index="6">
+              <div class="pile-label"><span>열 7</span></div>
+              <div class="pile-body"></div>
+            </div>
+            <div class="pile pile-cascade" data-pile-type="cascade" data-index="7">
+              <div class="pile-label"><span>열 8</span></div>
+              <div class="pile-body"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint">
+        <div class="pill-label">게임 팁</div>
+        <ul>
+          <li>한 번 클릭해서 카드를 선택하고, 다시 클릭해서 목적지 칸(열 / FREE / 기초)을 선택하는 방식입니다.</li>
+          <li><b>열에 있는 맨 위 카드</b>를 <b>더블클릭</b>하면 비어 있는 FREE 칸으로 자동 이동합니다.</li>
+          <li>이번 버전은 <b>맨 위 카드만 이동</b>할 수 있게 구현되어 있습니다. (다중 카드 이동은 나중에 확장)</li>
+          <li>FREE 칸에는 카드 한 장만 올릴 수 있고, 기초 더미에는 A부터 같은 무늬로 오름차순으로만 쌓을 수 있습니다.</li>
+          <li>아래 열은 색깔 교차 · 숫자 내림차순으로만 올 수 있습니다. (빨강 ↔ 검정 교차)</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 오른쪽 : 정보 / 조작 패널 -->
+    <aside class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px;">
+        <span class="pill-label">
+          모드 <strong style="color:#e5e7eb;">프리셀 (FreeCell)</strong>
+        </span>
+        <span class="pill-label">
+          목표 <span>모든 카드를 기초로 올리기</span>
+        </span>
+      </div>
+
+      <button id="btn-auto" class="big-btn">기초로 자동 이동</button>
+
+      <div id="status" class="status-msg">새 게임 버튼을 눌러 시작하세요.</div>
+
+      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4%;">
+        <div style="font-weight:600;color:var(--ink);margin-bottom:4px;">간단 규칙 요약</div>
+        <ul style="padding-left:18px;margin:4px 0;">
+          <li>카드를 클릭해 선택 → 다른 칸을 클릭해 이동.</li>
+          <li>FREE: 임시 보관 칸 (각 칸 1장).</li>
+          <li>기초(♠♥♣♦): A부터 같은 무늬로 1 → 13까지 쌓기.</li>
+          <li>아래 8개의 열: 색깔이 교차되면서 숫자가 1씩 작아지는 카드만 위에 쌓을 수 있음.</li>
+          <li>“기초로 자동 이동” / 카드 이동 후,
+            <br>판에 그 카드보다 <b>작은 랭크(숫자/문자)가 하나도 없으면</b> 각 무늬에 맞는 기초로 자동으로 올라갑니다.</li>
+        </ul>
+      </div>
+
+      <footer>© 2024 Demo_Game — 네온 스타일 프리셀 샘플</footer>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // 올라가는 기초 더미 순서: 스페이드 -> 하트 -> 클로버 -> 다이아몬드
+  const suits = ['♠','♥','♣','♦'];
+
+  const RANK_LABELS = {
+    1:'A', 11:'J', 12:'Q', 13:'K'
+  };
+
+  const movesEl = document.getElementById('moves');
+  const timeEl  = document.getElementById('time');
+  const stateEl = document.getElementById('state');
+  const statusBox = document.getElementById('status');
+  const btnNew  = document.getElementById('btn-new');
+  const btnAuto = document.getElementById('btn-auto');
+
+  const freePileEls = Array.from(document.querySelectorAll('.pile[data-pile-type="free"]'));
+  const foundationPileEls = Array.from(document.querySelectorAll('.pile[data-pile-type="foundation"]'));
+  const cascadePileEls = Array.from(document.querySelectorAll('.pile[data-pile-type="cascade"]'));
+  const allPileEls = Array.from(document.querySelectorAll('.pile'));
+
+  const game = {
+    free: [null,null,null,null],   // 각 FREE 칸 (카드 1장)
+    foundations: [[],[],[],[]],    // 각 무늬별 기초 더미
+    cascades: Array.from({length:8}, ()=>[]),
+    moves:0,
+    selected:null,                 // {pileType, pileIndex}
+    startTime:null,
+    won:false
+  };
+
+  function cardColor(card){
+    return (card.suit==='♥' || card.suit==='♦') ? 'red' : 'black';
+  }
+
+  function rankLabel(rank){
+    return RANK_LABELS[rank] || String(rank);
+  }
+
+  function formatTime(sec){
+    const m = Math.floor(sec/60);
+    const s = sec % 60;
+    return m + ':' + String(s).padStart(2,'0');
+  }
+
+  function setStatus(msg, type){
+    statusBox.textContent = msg || '';
+    statusBox.classList.remove('positive','negative');
+    if(type==='good') statusBox.classList.add('positive');
+    if(type==='bad')  statusBox.classList.add('negative');
+  }
+
+  function updateHUD(){
+    const elapsed = game.startTime ? Math.floor((Date.now() - game.startTime)/1000) : 0;
+    movesEl.textContent = game.moves;
+    timeEl.textContent = formatTime(elapsed);
+    stateEl.textContent = game.won ? '완료!' : '플레이 중';
+  }
+
+  function createDeck(){
+    const deck = [];
+    for(let s of suits){
+      for(let r=1;r<=13;r++){
+        deck.push({suit:s, rank:r});
+      }
+    }
+    return deck;
+  }
+
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]] = [arr[j],arr[i]];
+    }
+  }
+
+  function newGame(){
+    const deck = createDeck();
+    shuffle(deck);
+
+    // 초기화
+    for(let i=0;i<4;i++) game.free[i] = null;
+    for(let i=0;i<4;i++) game.foundations[i] = [];
+    for(let i=0;i<8;i++) game.cascades[i] = [];
+
+    // 8열로 순차 배분 (전형적인 FreeCell 스타일)
+    for(let i=0;i<deck.length;i++){
+      game.cascades[i % 8].push(deck[i]);
+    }
+
+    game.moves = 0;
+    game.selected = null;
+    game.startTime = Date.now();
+    game.won = false;
+
+    setStatus('새 게임을 시작했습니다. 좋은 행운을 빕니다 ✨','good');
+    render();
+  }
+
+  function getTopCard(pileType, pileIndex){
+    if(pileType === 'cascade'){
+      const pile = game.cascades[pileIndex];
+      if(!pile.length) return null;
+      return pile[pile.length-1];
+    }else if(pileType === 'free'){
+      return game.free[pileIndex];
+    }else if(pileType === 'foundation'){
+      const pile = game.foundations[pileIndex];
+      if(!pile.length) return null;
+      return pile[pile.length-1];
+    }
+    return null;
+  }
+
+  function canPlace(card, destType, destIndex){
+    if(destType === 'free'){
+      return !game.free[destIndex];
+    }
+    if(destType === 'foundation'){
+      const destSuit = suits[destIndex];
+      if(card.suit !== destSuit) return false;
+      const pile = game.foundations[destIndex];
+      if(!pile.length) return card.rank === 1;
+      const top = pile[pile.length-1];
+      return card.rank === top.rank + 1;
+    }
+    if(destType === 'cascade'){
+      const pile = game.cascades[destIndex];
+      if(!pile.length) return true;
+      const top = pile[pile.length-1];
+      if(cardColor(card) === cardColor(top)) return false;
+      return card.rank === top.rank - 1;
+    }
+    return false;
+  }
+
+  // --- (3) "판에 자기보다 작은 숫자 카드가 없으면 자동 기초 이동" 로직 ---
+
+  // 판(열 + FREE)에 있는 모든 카드를 순회
+  function forEachBoardCard(callback){
+    // FREE
+    for(let i=0;i<game.free.length;i++){
+      const card = game.free[i];
+      if(card) callback(card, 'free', i);
+    }
+    // CASCADE
+    for(let i=0;i<game.cascades.length;i++){
+      const pile = game.cascades[i];
+      for(let j=0;j<pile.length;j++){
+        const card = pile[j];
+        callback(card, 'cascade', i, j);
+      }
+    }
+  }
+
+  // 판에 rank보다 작은 랭크(숫자/문자)를 가진 카드가 하나라도 있으면 true
+  function existsLowerRankOnBoard(rank){
+    let found = false;
+    forEachBoardCard(card=>{
+      if(card.rank < rank){
+        found = true;
+      }
+    });
+    return found;
+  }
+
+  // 해당 카드가 "안전 자동 이동" 조건을 만족하는지
+  function canAutoMoveCardToFoundation(card){
+    if(!card) return false;
+    // 판 어디에도 자기보다 작은 랭크 카드가 없어야 함 (무늬 상관 없음)
+    if(existsLowerRankOnBoard(card.rank)) return false;
+    const destIndex = suits.indexOf(card.suit);
+    if(destIndex === -1) return false;
+    return canPlace(card,'foundation',destIndex);
+  }
+
+  // 조건을 만족하는 모든 카드를 기초로 자동 이동
+  function autoMoveSafeToFoundation(notify){
+    let movedAny = false;
+    let again = true;
+
+    while(again){
+      again = false;
+
+      // 1) FREE에서 먼저 체크
+      for(let i=0;i<4;i++){
+        const card = game.free[i];
+        if(!card) continue;
+        if(!canAutoMoveCardToFoundation(card)) continue;
+
+        const destIndex = suits.indexOf(card.suit);
+        if(destIndex === -1) continue;
+
+        const moved = tryMove('free', i, 'foundation', destIndex, {silent:true});
+        if(moved){
+          movedAny = true;
+          again = true;
+          break;
+        }
+      }
+      if(again) continue;
+
+      // 2) 아래 열의 맨 위 카드들 체크
+      for(let i=0;i<game.cascades.length;i++){
+        const pile = game.cascades[i];
+        if(!pile.length) continue;
+        const card = pile[pile.length-1];
+        if(!canAutoMoveCardToFoundation(card)) continue;
+
+        const destIndex = suits.indexOf(card.suit);
+        if(destIndex === -1) continue;
+
+        const moved = tryMove('cascade', i, 'foundation', destIndex, {silent:true});
+        if(moved){
+          movedAny = true;
+          again = true;
+          break;
+        }
+      }
+    }
+
+    if(notify){
+      if(movedAny){
+        if(game.won){
+          setStatus('🎉 조건을 만족하는 모든 카드를 기초 더미로 올렸습니다.','good');
+        }else{
+          setStatus('조건을 만족하는 카드를 기초 더미로 자동 이동했습니다.','good');
+        }
+      }else{
+        setStatus('조건을 만족하는 자동 이동 가능 카드가 없습니다.','');
+      }
+    }
+  }
+
+  function checkWin(){
+    let total = 0;
+    for(const pile of game.foundations){
+      total += pile.length;
+    }
+    if(total === 52){
+      game.won = true;
+      setStatus('🎉 축하합니다! 프리셀을 모두 완료했습니다.','good');
+    }
+  }
+
+  function tryMove(srcType, srcIndex, destType, destIndex, opts){
+    const silent = opts && opts.silent;
+    if(game.won){
+      if(!silent) setStatus('이미 클리어한 게임입니다. 새 게임으로 다시 시작해 주세요.','');
+      return false;
+    }
+    if(srcType === 'foundation'){
+      // 이번 버전에서는 기초 → 다른 곳 이동은 금지
+      if(!silent) setStatus('기초 더미에서는 카드를 꺼낼 수 없도록 되어 있습니다.','bad');
+      return false;
+    }
+
+    const card = getTopCard(srcType, srcIndex);
+    if(!card) return false;
+
+    if(!canPlace(card, destType, destIndex)){
+      if(!silent) setStatus('그 위치로는 규칙상 이동할 수 없습니다.','bad');
+      return false;
+    }
+
+    // 실제 이동
+    if(srcType === 'cascade'){
+      const pile = game.cascades[srcIndex];
+      if(!pile.length || pile[pile.length-1] !== card){
+        if(!silent) setStatus('지금은 맨 위 카드만 이동할 수 있습니다.','');
+        return false;
+      }
+      pile.pop();
+    }else if(srcType === 'free'){
+      if(!game.free[srcIndex]){
+        return false;
+      }
+      game.free[srcIndex] = null;
+    }
+
+    if(destType === 'cascade'){
+      game.cascades[destIndex].push(card);
+    }else if(destType === 'free'){
+      game.free[destIndex] = card;
+    }else if(destType === 'foundation'){
+      game.foundations[destIndex].push(card);
+    }
+
+    // 이동 수는 "직접 한 이동"만 카운트 (silent 이동은 제외)
+    if(!silent){
+      game.moves++;
+    }
+
+    game.selected = null;
+
+    if(!silent) setStatus('카드를 이동했습니다.','good');
+    checkWin();
+
+    // 수동 이동 이후, 조건을 만족하는 카드들을 자동으로 기초로 올리기
+    if(!silent){
+      autoMoveSafeToFoundation(false);
+    }
+
+    return true;
+  }
+
+  function createCardElement(card, pileType, pileIndex, cardIndex, isTop){
+    const el = document.createElement('div');
+    el.classList.add('card');
+    el.classList.add(cardColor(card)==='red' ? 'red' : 'black');
+
+    if(game.selected &&
+       game.selected.pileType === pileType &&
+       game.selected.pileIndex === pileIndex &&
+       isTop){
+      el.classList.add('selected');
+    }
+
+    el.dataset.pileType = pileType;
+    el.dataset.pileIndex = String(pileIndex);
+    el.dataset.cardIndex = String(cardIndex);
+
+    const rank = rankLabel(card.rank);
+    const suit = card.suit;
+
+    el.innerHTML = `
+      <div class="card-rank">${rank}</div>
+      <div class="card-suit">${suit}</div>
+      <div class="card-center">${suit}</div>
+    `;
+
+    el.onclick = onCardClick;
+    el.ondblclick = onCardDoubleClick; // (2) 더블클릭 → FREE 칸 자동 이동
+
+    return el;
+  }
+
+  function renderPiles(){
+    // Free
+    freePileEls.forEach((pileEl, index)=>{
+      const body = pileEl.querySelector('.pile-body');
+      body.innerHTML = '';
+      const card = game.free[index];
+      const hint = pileEl.querySelector('.pile-empty-hint');
+      if(card){
+        const cardEl = createCardElement(card,'free',index,0,true);
+        cardEl.style.position = 'relative';
+        body.appendChild(cardEl);
+        if(hint) hint.style.display = 'none';
+      }else{
+        if(hint) hint.style.display = 'flex';
+      }
+    });
+
+    // Foundations
+    foundationPileEls.forEach((pileEl, index)=>{
+      const body = pileEl.querySelector('.pile-body');
+      body.innerHTML = '';
+      const pile = game.foundations[index];
+      const hint = pileEl.querySelector('.pile-empty-hint');
+      if(pile.length){
+        const card = pile[pile.length-1];
+        const cardEl = createCardElement(card,'foundation',index,pile.length-1,true);
+        cardEl.style.position = 'relative';
+        body.appendChild(cardEl);
+        if(hint) hint.style.display = 'none';
+      }else{
+        if(hint) hint.style.display = 'flex';
+      }
+    });
+
+    // Cascades
+    cascadePileEls.forEach((pileEl, index)=>{
+      const body = pileEl.querySelector('.pile-body');
+      body.innerHTML = '';
+      const pile = game.cascades[index];
+      pile.forEach((card, cardIndex)=>{
+        const isTop = cardIndex === pile.length-1;
+        const cardEl = createCardElement(card,'cascade',index,cardIndex,isTop);
+        cardEl.style.top = (cardIndex * 24) + 'px';
+        body.appendChild(cardEl);
+      });
+    });
+  }
+
+  function render(){
+    renderPiles();
+    updateHUD();
+  }
+
+  function onCardClick(ev){
+    ev.stopPropagation();
+    const el = ev.currentTarget;
+    const pileType = el.dataset.pileType;
+    const pileIndex = Number(el.dataset.pileIndex);
+    const cardIndex = Number(el.dataset.cardIndex);
+    handleCardClick(pileType, pileIndex, cardIndex);
+  }
+
+  // (2) 카드 더블클릭 → 비어 있는 FREE 칸으로 자동 이동
+  function onCardDoubleClick(ev){
+    ev.stopPropagation();
+    const el = ev.currentTarget;
+    const pileType = el.dataset.pileType;
+    const pileIndex = Number(el.dataset.pileIndex);
+    const cardIndex = Number(el.dataset.cardIndex);
+
+    // 기초 더미에서는 꺼낼 수 없음
+    if(pileType === 'foundation'){
+      setStatus('기초 더미에서는 카드를 꺼낼 수 없습니다.','bad');
+      return;
+    }
+
+    // 열(cascade)의 경우, 맨 위 카드만 더블클릭 이동 허용
+    if(pileType === 'cascade'){
+      const pile = game.cascades[pileIndex];
+      if(cardIndex !== pile.length-1){
+        setStatus('지금은 맨 위 카드만 이동할 수 있습니다.','');
+        return;
+      }
+    }
+
+    // FREE → FREE 더블클릭은 아무 동작 없음
+    if(pileType === 'free'){
+      return;
+    }
+
+    // 비어 있는 FREE 칸 찾기
+    let targetFree = -1;
+    for(let i=0;i<game.free.length;i++){
+      if(!game.free[i]){
+        targetFree = i;
+        break;
+      }
+    }
+
+    if(targetFree === -1){
+      setStatus('비어 있는 FREE 칸이 없습니다.','bad');
+      return;
+    }
+
+    const moved = tryMove(pileType, pileIndex, 'free', targetFree);
+    if(moved){
+      render();
+    }
+  }
+
+  function handleCardClick(pileType, pileIndex, cardIndex){
+    const sel = game.selected;
+
+    if(!sel){
+      // 첫 선택
+      if(pileType === 'foundation'){
+        setStatus('이번 버전에서는 기초 더미에서 카드를 다시 꺼낼 수 없게 해 두었습니다.','bad');
+        return;
+      }
+      if(pileType === 'cascade'){
+        const pile = game.cascades[pileIndex];
+        if(cardIndex !== pile.length-1){
+          setStatus('지금은 맨 위 카드만 선택/이동할 수 있습니다.','');
+          return;
+        }
+      }
+      game.selected = {pileType, pileIndex};
+      setStatus('이동할 목적지를 클릭하세요.','');
+      render();
+      return;
+    }
+
+    // 같은 칸 다시 클릭 → 선택 해제
+    if(sel.pileType === pileType && sel.pileIndex === pileIndex){
+      game.selected = null;
+      setStatus('선택을 해제했습니다.','');
+      render();
+      return;
+    }
+
+    const moved = tryMove(sel.pileType, sel.pileIndex, pileType, pileIndex);
+    if(moved){
+      render();
+    }else{
+      // 이동 실패 시, 조건에 맞으면 선택 대상을 변경
+      if(pileType === 'cascade'){
+        const pile = game.cascades[pileIndex];
+        if(cardIndex === pile.length-1){
+          game.selected = {pileType, pileIndex};
+          setStatus('선택 대상을 바꾸었습니다.','');
+          render();
+        }
+      }else if(pileType === 'free'){
+        game.selected = {pileType, pileIndex};
+        setStatus('선택 대상을 바꾸었습니다.','');
+        render();
+      }
+    }
+  }
+
+  function onPileClick(ev){
+    const pileEl = ev.currentTarget;
+    const pileType = pileEl.dataset.pileType;
+    const pileIndex = Number(pileEl.dataset.index);
+    const sel = game.selected;
+
+    if(!sel){
+      setStatus('먼저 옮길 카드를 클릭해 선택해 주세요.','');
+      return;
+    }
+
+    // 같은 칸 → 선택 해제
+    if(sel.pileType === pileType && sel.pileIndex === pileIndex){
+      game.selected = null;
+      setStatus('선택을 해제했습니다.','');
+      render();
+      return;
+    }
+
+    const moved = tryMove(sel.pileType, sel.pileIndex, pileType, pileIndex);
+    if(moved){
+      render();
+    }
+  }
+
+  // "기초로 자동 이동" 버튼 → (3)의 안전 자동 이동만 수행
+  function autoMoveToFoundation(){
+    autoMoveSafeToFoundation(true);
+    render();
+  }
+
+  // 이벤트 바인딩
+  allPileEls.forEach(el=>{
+    el.onclick = onPileClick;
+  });
+
+  btnNew.addEventListener('click', newGame);
+  btnAuto.addEventListener('click', autoMoveToFoundation);
+
+  // 타이머 갱신
+  setInterval(updateHUD, 1000);
+
+  // 시작 시 자동으로 새 게임 한번 실행
+  newGame();
+})();
+</script>
+</body>
+</html>
