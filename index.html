@@ -1,90 +1,169 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Demo_Game</title>
-<style>
-  :root{--bg:#0e1220;--ink:#e9edff;--muted:#9aa3c7;--card:#141933}
-  *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui}
-  .wrap{max-width:1100px;margin:0 auto;padding:16px}
-  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-  h1{margin:0;font-size:22px}
-  input{background:#121632;border:1px solid #2b325c;border-radius:10px;color:var(--ink);padding:8px 10px;min-width:240px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:12px}
-  .card{background:var(--card);border:1px solid #242a49;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
-  .thumb{aspect-ratio:16/9;background:#0b0f1e;display:grid;place-items:center;font-size:12px;color:#7aa2ff}
-  .meta{padding:12px} .title{font-weight:700;margin:0 0 4px} .desc{color:var(--muted);font-size:14px;margin:0 0 10px}
-  .btn{margin:12px;border-top:1px solid #242a49;padding:10px;text-align:center;background:#1b2145;border-radius:10px;color:var(--ink);text-decoration:none}
-  footer{color:var(--muted);font-size:13px;margin-top:14px}
-</style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Demo_Game</title>
+    <!-- Tailwind CSS CDN 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* 기본 테마 설정 (어두운 배경, Inter 폰트) */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* GitHub Dark 배경 */
+            color: #c9d1d9;
+        }
+    </style>
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <h1>Demo_Game</h1>
-    <input id="q" type="search" placeholder="게임 검색… (이름, 태그)">
-  </header>
+<body class="p-4 sm:p-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- 헤더 및 검색창 -->
+        <header class="flex justify-between items-center gap-4 flex-wrap mb-8">
+            <!-- 시각적으로 강조된 타이틀 -->
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500">
+                Demo_Game
+            </h1>
+            <!-- 검색창 스타일 -->
+            <input 
+                id="q" 
+                type="search" 
+                placeholder="게임 검색 (이름, 태그)..."
+                class="bg-gray-800 border border-gray-700 rounded-xl text-white p-3 min-w-60 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 shadow-lg"
+            >
+        </header>
 
-  <div id="grid" class="grid" aria-live="polite"></div>
-  <footer>© Demo_Game— HTML5 데모 모음</footer>
-</div>
+        <!-- 게임 목록 그리드 컨테이너 -->
+        <!-- 반응형 그리드: 작은 화면 2열, 중간 화면 3열, 큰 화면 4열 -->
+        <div id="grid" class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mt-6" aria-live="polite">
+            <!-- JavaScript에 의해 카드들이 여기에 삽입됩니다. -->
+        </div>
+        
+        <!-- 푸터 -->
+        <footer class="text-gray-500 text-sm mt-12 pt-6 border-t border-gray-700 text-center">
+            &copy; 2024 Demo_Game — HTML5 데모 모음
+        </footer>
+    </div>
 
 <script>
-(async function(){
-  const grid = document.getElementById('grid');
-  const q = document.getElementById('q');
-  let games = [];
+/**
+ * games/games.json에서 데이터를 불러와 화면에 렌더링하고 검색 기능을 구현하는 스크립트입니다.
+ * Tailwind CSS 클래스를 사용하여 시각적 효과와 반응형 디자인을 적용했습니다.
+ */
 
-  try{
-    // 원래의 상대 경로로 다시 시도합니다. URL 파싱 문제는 이 경로에서 발생하지 않아야 합니다.
-    const res = await fetch('games/games.json', {cache:'no-store'});
-    
-    // 404와 같은 오류 상태 코드를 명확히 처리합니다.
-    if (!res.ok) {
-        throw new Error(`파일을 찾을 수 없습니다. HTTP Status: ${res.status}`);
+(async function(){
+    const grid = document.getElementById('grid');
+    const q = document.getElementById('q');
+    let games = [];
+
+    // 네트워크 오류 시 재시도 로직을 포함한 fetch 함수
+    const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                // !!! 수정된 부분: URL 파싱 오류 해결을 위해 복잡한 URL 생성 로직을 제거하고,
+                // 대신 요청 경로를 루트(Root) 상대 경로로 명확하게 변환하여 fetch를 시도합니다.
+                const path = url.startsWith('/') ? url : '/' + url;
+                const response = await fetch(path, options);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response;
+            } catch (error) {
+                console.error(`Fetch attempt ${i + 1} failed for ${url}:`, error.message);
+                if (i < maxRetries - 1) {
+                    // 지수 백오프: 1초, 2초, 4초 대기 후 재시도
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                } else {
+                    throw error;
+                }
+            }
+        }
+    };
+
+    try {
+        // games/games.json 파일 로드 (캐시 방지)
+        // fetchWithRetry 함수 내에서 경로가 이미 루트 상대 경로로 변환됩니다.
+        const res = await fetchWithRetry('games/games.json', { cache: 'no-store' });
+        games = await res.json();
+    } catch(e) {
+        // 로드 실패 시 오류 메시지 표시
+        grid.innerHTML = '<div class="col-span-full text-center p-8 bg-red-900/30 border border-red-700 rounded-xl text-red-300">⚠️ 게임 목록 (games/games.json)을 불러오지 못했습니다. 파일 경로를 확인해주세요.</div>';
+        console.error("Failed to load games data finally:", e);
+        return;
     }
 
-    games = await res.json();
-  }catch(e){
-    // 오류 메시지에 파일 구조에 대한 안내를 추가하여 404 문제를 해결하도록 돕습니다.
-    grid.innerHTML = `
-        <div style="color:#ff9aa2; border: 1px solid #7c3a3a; padding: 16px; border-radius: 8px; background: #291a1c; margin-top: 20px;">
-            <strong style="color: #fff;">⚠️ 게임 목록을 불러오지 못했습니다.</strong>
-            <p style="margin-top: 8px;">
-              **[games]** 폴더와 그 안에 **[games.json]** 파일이
-              웹사이트의 루트 경로에 **정확히** 업로드되었는지 확인해주세요.
-            </p>
-            <div style="font-size: 13px; margin-top: 8px; color: #ccc;">(오류 상세: ${e.message || '네트워크 연결 오류'})</div>
-        </div>
-    `;
-    return;
-  }
+    // 게임 데이터를 받아 시각적으로 매력적인 HTML 카드 문자열을 생성하는 함수
+    const card = (g) => {
+        const title = g.title || '이름 없음';
+        const desc = g.desc || '게임에 대한 설명이 없습니다.';
+        // 썸네일이 없으면 기본 플레이스홀더 이미지 사용
+        const thumbUrl = g.thumb || 'https://placehold.co/600x338/1f2937/9ca3af?text=No+Thumbnail'; 
+        
+        return `
+            <!-- 카드 본체: 어두운 배경, 둥근 모서리, 마우스 오버 시 그림자 및 상승 효과 -->
+            <article class="bg-gray-800 rounded-xl overflow-hidden shadow-2xl transition duration-300 hover:shadow-teal-500/50 transform hover:-translate-y-1 flex flex-col">
+                
+                <!-- 썸네일 영역: 배경 이미지로 표시하여 종횡비 16:9 유지 -->
+                <div 
+                    class="aspect-[16/9] bg-cover bg-center" 
+                    style="background-image: url('${thumbUrl}');"
+                    aria-label="${title} 게임 스크린샷"
+                >
+                </div>
+                
+                <!-- 메타 정보 영역: flex-grow를 사용하여 버튼이 항상 하단에 위치하도록 함 -->
+                <div class="p-5 flex-grow">
+                    <!-- 제목 (넘칠 경우 잘림) -->
+                    <h3 class="text-xl font-bold mb-2 text-white line-clamp-1">${title}</h3>
+                    <!-- 설명 (넘칠 경우 잘림) -->
+                    <p class="text-gray-400 text-sm mb-4 line-clamp-2">${desc}</p>
+                    
+                    <!-- 태그 목록 (있는 경우에만 표시) -->
+                    ${g.tags && g.tags.length > 0 ? `
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            ${g.tags.map(tag => 
+                                `<span class="text-xs bg-teal-900/50 text-teal-300 px-2 py-0.5 rounded-full">${tag}</span>`
+                            ).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <!-- 실행 버튼: 카드 하단에 전체 너비로 배치 -->
+                <a class="w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-b-xl transition duration-200 shadow-md" 
+                   href="${g.url}" 
+                   target="_blank" 
+                   rel="noopener"
+                >
+                    ▶️ 실행하기
+                </a>
+            </article>
+        `;
+    };
 
-  const card = (g) => `
-    <article class="card">
-      ${g.thumb ? `<img class="thumb" src="${g.thumb}" alt="">`
-                 : `<div class="thumb">No Thumbnail</div>`}
-      <div class="meta">
-        <h3 class="title">${g.title}</h3>
-        <p class="desc">${g.desc||''}</p>
-      </div>
-      <a class="btn" href="${g.url}" target="_blank" rel="noopener">실행하기</a>
-    </article>
-  `;
+    // 필터링된 게임 목록을 렌더링하는 함수
+    const render = (list) => {
+        grid.innerHTML = list.map(card).join('') || 
+            '<div class="col-span-full text-center p-8 text-gray-400">🔍 검색 결과와 일치하는 게임이 없습니다.</div>';
+    };
 
-  const render = (list) => {
-    grid.innerHTML = list.map(card).join('') || '<div style="color:#9aa3c7">검색 결과가 없습니다.</div>';
-  };
+    // 검색 텍스트에 따라 게임 목록을 필터링하는 함수
+    const filter = (text) => {
+        const t = text.trim().toLowerCase();
+        if(!t) return games;
+        return games.filter(g => {
+            // 제목, 설명, 태그를 모두 포함하여 검색
+            const searchString = (g.title || '') + ' ' + (g.desc || '') + ' ' + (g.tags || []).join(' ');
+            return searchString.toLowerCase().includes(t);
+        });
+    };
 
-  const filter = (text) => {
-    const t = text.trim().toLowerCase();
-    if(!t) return games;
-    return games.filter(g => (g.title+' '+(g.desc||'')+' '+(g.tags||[]).join(' ')).toLowerCase().includes(t));
-  };
-
-  q.addEventListener('input', e => render(filter(e.target.value)));
-  render(games);
+    // 검색 입력 이벤트 리스너
+    q.addEventListener('input', e => render(filter(e.target.value)));
+    
+    // 페이지 로드 후 초기 렌더링
+    render(games);
 })();
 </script>
 </body>
