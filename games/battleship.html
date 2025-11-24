@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>배틀쉽</title>
+<title>네온 배틀쉽</title>
 <style>
   :root{
     --bg:#050816;
@@ -381,24 +381,50 @@
     box-shadow:0 0 0 2px rgba(248,113,113,0.9);
     border-color:#fb7185 !important;
   }
+
+  /* BGM 음량 슬라이더 */
+  .volume-wrap{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:11px;
+    color:var(--muted);
+  }
+  #bgm-volume{
+    width:110px;
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div>
-      <h1><span class="logo-dot"></span>배틀쉽</h1>
+      <h1><span class="logo-dot"></span>네온 배틀쉽</h1>
       <div class="subtitle">네온 UI 스타일의 싱글플레이 배틀쉽 (직접 배치 + 자동 배치 + 수정 가능)</div>
     </div>
     <div class="row">
       <button id="btn-bgm" class="btn btn-ghost">BGM ▶</button>
+      <div class="volume-wrap">
+        <span>음량</span>
+        <input id="bgm-volume" type="range" min="0" max="1" step="0.01" value="0.6">
+      </div>
       <button id="btn-new" class="btn btn-primary">새 게임</button>
     </div>
   </header>
 
-  <!-- 🔊 BGM: ../BGM/Attack of The Trolls.mp3 -->
+  <!-- 🔊 배경 BGM (경로 기준: games/battleship.html -> ../BGM/...) -->
   <audio id="bgm" preload="auto" loop>
     <source src="../BGM/Attack of The Trolls.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- 💥 포격 SFX (직접 파일 준비해서 BGM 폴더에 넣어 주세요) -->
+  <audio id="sfx-hit-enemy" preload="auto">
+    <!-- 내가 적 함대를 맞췄을 때 -->
+    <source src="../BGM/hit_enemy.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="sfx-hit-player" preload="auto">
+    <!-- 적이 내 함대를 맞췄을 때 -->
+    <source src="../BGM/hit_player.mp3" type="audio/mpeg">
   </audio>
 
   <div class="layout">
@@ -476,7 +502,7 @@
 
       <div id="placement-info" class="status-msg" style="margin-top:8px;">오른쪽에서 함선을 선택한 뒤 내 해역에서 위치를 클릭해 배치하세요.</div>
 
-      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4;">
+      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4%;">
         <div style="font-weight:600;color:var(--ink);margin-bottom:4px;">AI 난이도</div>
         <div class="row" style="margin-top:4px;gap:6px;">
           <button type="button" class="btn-pill" data-ai-diff="easy">초급</button>
@@ -488,7 +514,7 @@
         </p>
       </div>
 
-      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4;">
+      <div style="margin-top:10px;font-size:13px;color:var(--muted);line-height:1.4%;">
         <div style="font-weight:600;color:var(--ink);margin-bottom:4px;">함대 선택</div>
         <div id="ship-list"></div>
       </div>
@@ -543,9 +569,13 @@
   const enemyGridEl  = document.getElementById('enemy-grid');
   const playerGridEl = document.getElementById('player-grid');
 
-  const aiDiffButtons = Array.from(document.querySelectorAll('[data-ai-diff]'));
-  const btnBgm        = document.getElementById('btn-bgm');
-  const bgmAudio      = document.getElementById('bgm');
+  const aiDiffButtons   = Array.from(document.querySelectorAll('[data-ai-diff]'));
+  const btnBgm          = document.getElementById('btn-bgm');
+  const bgmAudio        = document.getElementById('bgm');
+  const bgmVolumeSlider = document.getElementById('bgm-volume');
+
+  const sfxHitEnemy  = document.getElementById('sfx-hit-enemy');  // 내가 적 맞춤
+  const sfxHitPlayer = document.getElementById('sfx-hit-player'); // 적이 나를 맞춤
 
   const enemyCells  = [];
   const playerCells = [];
@@ -574,6 +604,20 @@
     if(type === 'bad')  statusBox.classList.add('negative');
   }
 
+  // 공통 SFX 재생 함수
+  function playSfx(audioEl){
+    if(!audioEl) return;
+    try{
+      audioEl.currentTime = 0;
+      const p = audioEl.play();
+      if(p && typeof p.then === 'function'){
+        p.catch(()=>{ /* 콘솔 noise 방지 */ });
+      }
+    }catch(e){
+      // 무시
+    }
+  }
+
   // BGM 토글
   function toggleBgm(){
     if(!bgmAudio){
@@ -582,17 +626,46 @@
     }
 
     if(bgmAudio.paused){
-      bgmAudio.play()
-        .then(()=>{
+      const p = bgmAudio.play();
+      if(p && typeof p.then === 'function'){
+        p.then(()=>{
           btnBgm.textContent = 'BGM ❚❚';
-        })
-        .catch(err=>{
+        }).catch(err=>{
           console.warn('BGM 재생 실패:', err);
-          setStatus('브라우저가 자동 재생을 막았거나, BGM 파일 경로에 문제가 있을 수 있습니다. 파일 위치/이름과 ../BGM 경로를 확인해 주세요.','');
+          setStatus('브라우저가 자동 재생을 막았을 수 있습니다. 상단의 BGM 버튼을 한 번 더 눌러 보거나, 파일 경로를 확인해 주세요.','');
         });
+      }
     }else{
       bgmAudio.pause();
       btnBgm.textContent = 'BGM ▶';
+    }
+  }
+
+  // BGM 음량 초기 설정 및 변경
+  function initBgmVolume(){
+    if(!bgmAudio || !bgmVolumeSlider) return;
+    const initial = parseFloat(bgmVolumeSlider.value || '0.6');
+    bgmAudio.volume = isNaN(initial) ? 0.6 : initial;
+
+    bgmVolumeSlider.addEventListener('input', function(){
+      const v = parseFloat(this.value);
+      if(isNaN(v)) return;
+      bgmAudio.volume = v;
+    });
+  }
+
+  // 페이지 로드 시 자동 BGM 재생 시도
+  function tryAutoplayBgm(){
+    if(!bgmAudio) return;
+    const p = bgmAudio.play();
+    if(p && typeof p.then === 'function'){
+      p.then(()=>{
+        if(btnBgm) btnBgm.textContent = 'BGM ❚❚';
+      }).catch(err=>{
+        console.warn('자동 BGM 재생 실패:', err);
+        setStatus('브라우저가 자동 재생을 막았습니다. 상단의 BGM 버튼을 눌러 BGM을 켤 수 있습니다.','');
+        if(btnBgm) btnBgm.textContent = 'BGM ▶';
+      });
     }
   }
 
@@ -1071,6 +1144,7 @@
       const ship = game.enemyShips[cell.shipIndex];
       ship.hits++;
       setStatus('명중! (' + coord + ')','good');
+      playSfx(sfxHitEnemy); // 내가 적을 맞췄을 때 SFX
     }else{
       cell.miss = true;
       setStatus('(' + coord + ') 은(는) 빗나갔습니다.','');
@@ -1169,6 +1243,7 @@
       const ship = game.playerShips[cell.shipIndex];
       ship.hits++;
       setStatus('컴퓨터가 ' + coord + ' 을(를) 공격해 명중했습니다!','bad');
+      playSfx(sfxHitPlayer); // 적이 나를 맞췄을 때 SFX
 
       if(game.aiDifficulty === 'medium' || game.aiDifficulty === 'hard'){
         enqueueAiTargets(row, col);
@@ -1274,8 +1349,10 @@
     setStatus('AI 난이도를 ' + label + ' 으로 설정했습니다.','');
   }
 
-  // 초기화
+  /* ========= 초기화 ========= */
+
   buildGrids();
+  initBgmVolume();
 
   btnNew.addEventListener('click', newGame);
   btnAutoPlace.addEventListener('click', autoPlacePlayerFleet);
@@ -1301,6 +1378,9 @@
   }
 
   newGame();
+
+  // 페이지 로드 후 BGM 자동 재생 시도
+  window.addEventListener('load', tryAutoplayBgm);
 })();
 </script>
 </body>
