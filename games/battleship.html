@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>네온 배틀쉽</title>
+<title>배틀쉽</title>
 <style>
   :root{
     --bg:#050816;
@@ -224,7 +224,6 @@
     opacity:0.8;
   }
 
-  /* ==== 바다 배경 + 살짝 출렁이는 물결 ==== */
   .board-grid{
     position:relative;
     display:grid;
@@ -277,7 +276,6 @@
     position:relative;
     z-index:1;
   }
-  .axis-corner{}
 
   .cell{
     position:relative;
@@ -308,7 +306,6 @@
     background:rgba(15,23,42,0.28);
   }
 
-  /* ---- 함선 모양 ---- */
   .cell-ship{
     background:radial-gradient(circle at 30% 15%, #111827,#020617);
     border-color:#020617;
@@ -390,7 +387,7 @@
 <div class="wrap">
   <header>
     <div>
-      <h1><span class="logo-dot"></span>네온 배틀쉽</h1>
+      <h1><span class="logo-dot"></span>배틀쉽</h1>
       <div class="subtitle">네온 UI 스타일의 싱글플레이 배틀쉽 (직접 배치 + 자동 배치 + 수정 가능)</div>
     </div>
     <div class="row">
@@ -399,9 +396,9 @@
     </div>
   </header>
 
-  <!-- 🔊 BGM: BGM/Attack of The Trolls.mp3 -->
+  <!-- 🔊 BGM: ../BGM/Attack of The Trolls.mp3 -->
   <audio id="bgm" preload="auto" loop>
-    <source src="BGM/Attack of The Trolls.mp3" type="audio/mpeg">
+    <source src="../BGM/Attack of The Trolls.mp3" type="audio/mpeg">
   </audio>
 
   <div class="layout">
@@ -569,7 +566,6 @@
   };
 
   let previewCells = [];
-  let bgmPlaying = false;
 
   function setStatus(msg, type){
     statusBox.textContent = msg || '';
@@ -578,33 +574,24 @@
     if(type === 'bad')  statusBox.classList.add('negative');
   }
 
-  /* ==== BGM 토글 ==== */
+  // BGM 토글
   function toggleBgm(){
     if(!bgmAudio){
       setStatus('BGM 오디오 요소를 찾을 수 없습니다.','bad');
       return;
     }
 
-    // 주의: src는 source 태그 쪽에 있으므로, 단순히 존재 여부만 체크
-    const hasSource = bgmAudio.querySelector('source');
-    if(!hasSource){
-      setStatus('BGM 소스를 찾을 수 없습니다. audio 태그 안의 source를 확인해 주세요.','bad');
-      return;
-    }
-
     if(bgmAudio.paused){
       bgmAudio.play()
         .then(()=>{
-          bgmPlaying = true;
           btnBgm.textContent = 'BGM ❚❚';
         })
         .catch(err=>{
           console.warn('BGM 재생 실패:', err);
-          setStatus('브라우저가 자동 재생을 막았거나, BGM 파일 경로에 문제가 있습니다. 한 번 더 눌러보거나, 파일 위치/이름을 확인해 주세요.','');
+          setStatus('브라우저가 자동 재생을 막았거나, BGM 파일 경로에 문제가 있을 수 있습니다. 파일 위치/이름과 ../BGM 경로를 확인해 주세요.','');
         });
     }else{
       bgmAudio.pause();
-      bgmPlaying = false;
       btnBgm.textContent = 'BGM ▶';
     }
   }
@@ -1287,8 +1274,7 @@
     setStatus('AI 난이도를 ' + label + ' 으로 설정했습니다.','');
   }
 
-  /* ========= 초기화 ========= */
-
+  // 초기화
   buildGrids();
 
   btnNew.addEventListener('click', newGame);
