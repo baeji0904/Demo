@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>알까기 – 수동 배치 + AI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top, #1e293b 0, #020617 55%, #000 100%);
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overscroll-behavior: none;
+      touch-action: none;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h1 span.icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #f97316, #db2777);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      box-shadow: 0 0 16px rgba(236,72,153,.8);
+    }
+    p {
+      margin: 4px 0 10px;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+    #info-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .badge {
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.4);
+      font-size: 12px;
+      background: rgba(15,23,42,.85);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge b {
+      font-weight: 600;
+      color: #facc15;
+    }
+    #turnLabel {
+      font-weight: 700;
+      color: #fbbf24;
+    }
+    #phaseLabel {
+      font-weight: 700;
+      color: #38bdf8;
+    }
+    .btn {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: none;
+      background: #4b5563;
+      color: #e5e7eb;
+      cursor: pointer;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn:hover {
+      background: #6b7280;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg,#22c55e,#16a34a);
+      color: #022c22;
+      box-shadow: 0 6px 16px rgba(22,163,74,.45);
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg,#34d399,#16a34a);
+    }
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .count-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 6px 0 8px;
+      font-size: 13px;
+    }
+    .counter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.4);
+      background: rgba(15,23,42,.9);
+    }
+    .counter span.label {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .counter span.value {
+      min-width: 18px;
+      text-align: center;
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+    .counter button {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: none;
+      background: #020617;
+      color: #e5e7eb;
+      cursor: pointer;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 8px rgba(15,23,42,.7);
+    }
+    .counter button:hover {
+      background: #111827;
+    }
+    .counter button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    #errorBox {
+      margin: 4px 0 8px;
+      font-size: 12px;
+      color: #fecaca;
+      white-space: pre-wrap;
+      min-height: 1em;
+    }
+
+    .board-wrap {
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      border-radius: 18px;
+      box-shadow: 0 22px 45px rgba(0,0,0,0.7);
+      background: #020617;
+      touch-action: none;
+    }
+    #gameOverOverlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      background: radial-gradient(circle at top, rgba(15,23,42,0.2), rgba(15,23,42,0.9));
+      backdrop-filter: blur(4px);
+    }
+    #resultText {
+      font-size: 40px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      text-shadow: 0 4px 14px rgba(0,0,0,0.9);
+    }
+    #restartBtn {
+      padding: 8px 20px;
+      border-radius: 9999px;
+      border: none;
+      background: #10b981;
+      color: #0b1120;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.6);
+    }
+    #restartBtn:hover {
+      background: #34d399;
+    }
+
+    @media (max-width: 640px) {
+      h1 { font-size: 20px; }
+      .wrap { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1><span class="icon">●</span>알까기 – 수동 배치 + AI</h1>
+
+    <div id="info-row">
+      <span class="badge">단계: <b id="phaseLabel">배치 단계</b></span>
+      <span class="badge">현재 차례: <span id="turnLabel">-</span></span>
+      <button id="startBtn" class="btn btn-primary">배치 완료 후 게임 시작</button>
+      <button id="resetBtn" class="btn">배치 초기화</button>
+    </div>
+
+    <div class="count-row">
+      <div class="counter">
+        <span class="label">1P 알 수</span>
+        <button type="button" data-side="1" data-delta="-1">-</button>
+        <span class="value" id="p1CountLabel">5</span>
+        <button type="button" data-side="1" data-delta="1">+</button>
+      </div>
+      <div class="counter">
+        <span class="label">2P 알 수</span>
+        <button type="button" data-side="2" data-delta="-1">-</button>
+        <span class="value" id="p2CountLabel">5</span>
+        <button type="button" data-side="2" data-delta="1">+</button>
+      </div>
+    </div>
+
+    <p>
+      • <b>배치 단계</b>: 위쪽은 2P(컴퓨터), 아래쪽은 1P 영역입니다. 알을 드래그해서 원하는 위치로 옮길 수 있고,
+      알 개수는 위의 <code>- / +</code> 버튼으로 각각 1~15개까지 조정할 수 있습니다.<br>
+      • <b>게임 시작</b>을 누르면 배치가 고정되고, 중앙의 색 배경/가이드 선은 모두 사라집니다.<br>
+      • <b>플레이 단계</b>: 1P 알을 터치(또는 마우스로 클릭)해서 뒤로 드래그 후 떼면 튕겨 나갑니다.
+      모든 알이 멈추면 턴이 바뀌며 2P는 자동으로 알을 튕깁니다.
+    </p>
+
+    <div id="errorBox"></div>
+
+    <div class="board-wrap">
+      <canvas id="game"></canvas>
+      <div id="gameOverOverlay">
+        <div id="resultText">승리</div>
+        <button id="restartBtn">다시 시작</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 에러 표시
+    window.onerror = function (msg, url, line, col, error) {
+      var box = document.getElementById("errorBox");
+      if (box) {
+        box.textContent = "JavaScript Error: " + msg + " (line " + line + ", col " + col + ")";
+      }
+    };
+
+    (function () {
+      var canvas = document.getElementById("game");
+      var errorBox = document.getElementById("errorBox");
+      if (!canvas) {
+        if (errorBox) errorBox.textContent = "canvas element not found.";
+        return;
+      }
+      var ctx = canvas.getContext("2d");
+      if (!ctx) {
+        if (errorBox) errorBox.textContent = "2D context not available.";
+        return;
+      }
+
+      var phaseLabel = document.getElementById("phaseLabel");
+      var turnLabel = document.getElementById("turnLabel");
+      var resetBtn = document.getElementById("resetBtn");
+      var startBtn = document.getElementById("startBtn");
+      var gameOverOverlay = document.getElementById("gameOverOverlay");
+      var resultTextEl = document.getElementById("resultText");
+      var restartBtn = document.getElementById("restartBtn");
+      var p1CountLabel = document.getElementById("p1CountLabel");
+      var p2CountLabel = document.getElementById("p2CountLabel");
+      var countButtons = document.querySelectorAll(".counter button[data-side]");
+
+      // === 물리/게임 상수 (올려주신 파일과 같은 힘 세기) ===
+      var RADIUS = 15;          // 알 반지름
+      var FRICTION = 0.97;
+      var MIN_SPEED = 0.03;
+      var POWER = 0.12;         // ★ 튕겨 나가는 정도
+      var MAX_DRAG_FACTOR = 6;  // ★ 최대 드래그 길이 = r * 6
+      var BOARD_MARGIN = 28;
+      var GRID_COLS = 11;
+      var GRID_ROWS = 15;
+      var MAX_PIECES = 15;
+      var MIN_PIECES = 1;
+
+      // 보드 정보
+      var board = {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+        cols: GRID_COLS,
+        rows: GRID_ROWS,
+        cellW: 0,
+        cellH: 0
+      };
+
+      // 게임 상태
+      var pieces = [];
+      var p1Count = 5;
+      var p2Count = 5;
+      var currentPlayer = 1;   // 1P: 사람, 2P: AI
+      var phase = "placement"; // "placement" | "playing" | "gameOver"
+      var gameOver = false;
+
+      // 드래그 상태
+      var dragMode = null;     // null | "placement" | "shot"
+      var dragPiece = null;
+      var dragStart = { x: 0, y: 0 };
+      var pointerPos = { x: 0, y: 0 };
+      var dragOffset = { x: 0, y: 0 };
+
+      // === 유틸 ===
+      function clamp(v, min, max) {
+        return v < min ? min : (v > max ? max : v);
+      }
+
+      function resizeCanvas() {
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+
+        var horizontalPadding = 32;
+        var width = Math.min(vw - horizontalPadding, 900);
+        if (width < 320) width = 320;
+
+        var headerReserve = 220; // 텍스트/버튼 영역 높이
+        var height = vh - headerReserve;
+        if (height < 360) height = 360;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        computeBoardGeometry();
+      }
+
+      function computeBoardGeometry() {
+        var bw = canvas.width - BOARD_MARGIN * 2;
+        var bh = canvas.height - BOARD_MARGIN * 2;
+        if (bw < 200) bw = 200;
+        if (bh < 260) bh = 260;
+        board.x = (canvas.width - bw) / 2;
+        board.y = (canvas.height - bh) / 2;
+        board.w = bw;
+        board.h = bh;
+        board.cellW = board.w / (board.cols - 1);
+        board.cellH = board.h / (board.rows - 1);
+      }
+
+      function gridToPixel(col, row) {
+        return {
+          x: board.x + board.cellW * col,
+          y: board.y + board.cellH * row
+        };
+      }
+
+      // === 배치 ===
+      function addPiece(side, col, row) {
+        var pos = gridToPixel(col, row);
+        pieces.push({
+          player: side,
+          x: pos.x,
+          y: pos.y,
+          vx: 0,
+          vy: 0,
+          r: RADIUS
+        });
+      }
+
+      function createSidePieces(side, count) {
+        var centerRow = Math.floor((board.rows - 1) / 2);
+        // 중앙에서 3칸 뒤로
+        var row = (side === 1) ? (centerRow + 3) : (centerRow - 3);
+        row = clamp(row, 1, board.rows - 2);
+
+        var firstCol = 1;
+        var lastCol = board.cols - 2;
+        if (count <= 1) {
+          var midCol = (firstCol + lastCol) / 2;
+          addPiece(side, midCol, row);
+          return;
+        }
+        for (var i = 0; i < count; i++) {
+          var t = i / (count - 1);
+          var col = firstCol + t * (lastCol - firstCol);
+          addPiece(side, col, row);
+        }
+      }
+
+      function initPlacement() {
+        gameOver = false;
+        phase = "placement";
+        currentPlayer = 1;
+        dragMode = null;
+        dragPiece = null;
+
+        pieces = [];
+        createSidePieces(1, p1Count);
+        createSidePieces(2, p2Count);
+
+        if (gameOverOverlay) gameOverOverlay.style.display = "none";
+        updateLabels();
+      }
+
+      function resetAll() {
+        p1Count = clamp(p1Count, MIN_PIECES, MAX_PIECES);
+        p2Count = clamp(p2Count, MIN_PIECES, MAX_PIECES);
+        resizeCanvas();
+        initPlacement();
+      }
+
+      // === UI ===
+      function updateLabels() {
+        if (phaseLabel) {
+          if (phase === "placement") {
+            phaseLabel.textContent = "배치 단계";
+            phaseLabel.style.color = "#38bdf8";
+          } else if (phase === "playing") {
+            phaseLabel.textContent = "플레이 단계";
+            phaseLabel.style.color = "#22c55e";
+          } else {
+            phaseLabel.textContent = "게임 종료";
+            phaseLabel.style.color = "#f97316";
+          }
+        }
+
+        if (turnLabel) {
+          if (phase !== "playing") {
+            turnLabel.textContent = "-";
+            turnLabel.style.color = "#e5e7eb";
+          } else {
+            turnLabel.textContent = currentPlayer + "P";
+            turnLabel.style.color = (currentPlayer === 1) ? "#fbbf24" : "#38bdf8";
+          }
+        }
+
+        if (p1CountLabel) p1CountLabel.textContent = String(p1Count);
+        if (p2CountLabel) p2CountLabel.textContent = String(p2Count);
+
+        if (startBtn) {
+          if (phase === "placement") {
+            startBtn.textContent = "배치 완료 후 게임 시작";
+            startBtn.disabled = false;
+          } else {
+            startBtn.textContent = "게임 진행 중";
+            startBtn.disabled = true;
+          }
+        }
+      }
+
+      function showGameOver(text) {
+        gameOver = true;
+        phase = "gameOver";
+        updateLabels();
+        if (resultTextEl) resultTextEl.textContent = text;
+        if (gameOverOverlay) gameOverOverlay.style.display = "flex";
+      }
+
+      function checkGameOver() {
+        if (gameOver || phase !== "playing") return;
+        var has1 = false, has2 = false;
+        for (var i = 0; i < pieces.length; i++) {
+          if (pieces[i].player === 1) has1 = true;
+          else if (pieces[i].player === 2) has2 = true;
+        }
+        if (!has1 && has2) {
+          showGameOver("패배");
+        } else if (!has2 && has1) {
+          showGameOver("승리");
+        } else if (!has1 && !has2) {
+          showGameOver("무승부");
+        }
+      }
+
+      // === 물리 ===
+      function anyMoving() {
+        for (var i = 0; i < pieces.length; i++) {
+          var p = pieces[i];
+          if (p.vx !== 0 || p.vy !== 0) return true;
+        }
+        return false;
+      }
+
+      function updatePhysics() {
+        if (phase !== "playing") return;
+
+        var i, j, p, a, b;
+
+        // 이동 + 마찰
+        for (i = 0; i < pieces.length; i++) {
+          p = pieces[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vx *= FRICTION;
+          p.vy *= FRICTION;
+          if (Math.sqrt(p.vx * p.vx + p.vy * p.vy) < MIN_SPEED) {
+            p.vx = 0;
+            p.vy = 0;
+          }
+        }
+
+        // 충돌
+        for (i = 0; i < pieces.length; i++) {
+          for (j = i + 1; j < pieces.length; j++) {
+            a = pieces[i];
+            b = pieces[j];
+            var dx = b.x - a.x;
+            var dy = b.y - a.y;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            var minDist = a.r + b.r;
+            if (dist > 0 && dist < minDist) {
+              var overlap = (minDist - dist) / 2;
+              var nx = dx / dist;
+              var ny = dy / dist;
+              a.x -= nx * overlap;
+              a.y -= ny * overlap;
+              b.x += nx * overlap;
+              b.y += ny * overlap;
+
+              var av = a.vx * nx + a.vy * ny;
+              var bv = b.vx * nx + b.vy * ny;
+              var diff = bv - av;
+              var impulse = diff;
+              a.vx += impulse * nx;
+              a.vy += impulse * ny;
+              b.vx -= impulse * nx;
+              b.vy -= impulse * ny;
+            }
+          }
+        }
+
+        // 판 밖으로 나간 알 제거
+        var kept = [];
+        var left = board.x, right = board.x + board.w;
+        var top = board.y, bottom = board.y + board.h;
+        for (i = 0; i < pieces.length; i++) {
+          p = pieces[i];
+          if (p.x >= left && p.x <= right && p.y >= top && p.y <= bottom) {
+            kept.push(p);
+          }
+        }
+        pieces = kept;
+
+        checkGameOver();
+      }
+
+      // === 그리기 ===
+      function roundRectPath(x, y, w, h, r) {
+        var rr = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + rr, y);
+        ctx.lineTo(x + w - rr, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+        ctx.lineTo(x + w, y + h - rr);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+        ctx.lineTo(x + rr, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+        ctx.lineTo(x, y + rr);
+        ctx.quadraticCurveTo(x, y, x + rr, y);
+        ctx.closePath();
+      }
+
+      function drawBoard() {
+        // 전체 배경
+        var bg = ctx.createRadialGradient(
+          canvas.width * 0.3, 0, 0,
+          canvas.width * 0.5, canvas.height * 1.0, canvas.height * 1.2
+        );
+        bg.addColorStop(0, "#0b1120");
+        bg.addColorStop(0.4, "#020617");
+        bg.addColorStop(1, "#000000");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 보드 3D
+        ctx.save();
+        roundRectPath(board.x, board.y, board.w, board.h, 24);
+        ctx.clip();
+
+        var grad = ctx.createLinearGradient(0, board.y, 0, board.y + board.h);
+        grad.addColorStop(0, "#111827");
+        grad.addColorStop(0.45, "#020617");
+        grad.addColorStop(1, "#020617");
+        ctx.fillStyle = grad;
+        ctx.fillRect(board.x, board.y, board.w, board.h);
+
+        var glow = ctx.createRadialGradient(
+          board.x + board.w * 0.5, board.y + board.h * 0.2, 0,
+          board.x + board.w * 0.5, board.y + board.h * 0.2, board.h
+        );
+        glow.addColorStop(0, "rgba(56,189,248,0.28)");
+        glow.addColorStop(1, "rgba(15,23,42,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(board.x, board.y, board.w, board.h);
+
+        // 배치 단계에서만 영역/가이드 표시
+        if (phase === "placement") {
+          var midY = board.y + board.h / 2;
+
+          // 위쪽 2P 영역
+          ctx.fillStyle = "rgba(37,99,235,0.16)";
+          ctx.fillRect(board.x, board.y, board.w, board.h / 2);
+
+          // 아래쪽 1P 영역
+          ctx.fillStyle = "rgba(250,204,21,0.12)";
+          ctx.fillRect(board.x, midY, board.w, board.h / 2);
+
+          // 중앙선
+          ctx.strokeStyle = "rgba(248,250,252,0.7)";
+          ctx.setLineDash([8, 6]);
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(board.x, midY);
+          ctx.lineTo(board.x + board.w, midY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // 격자
+        ctx.strokeStyle = "rgba(148,163,184,0.45)";
+        ctx.lineWidth = 1.5;
+        for (var c = 0; c < board.cols; c++) {
+          var gx = board.x + board.cellW * c;
+          ctx.beginPath();
+          ctx.moveTo(gx, board.y);
+          ctx.lineTo(gx, board.y + board.h);
+          ctx.stroke();
+        }
+        for (var r = 0; r < board.rows; r++) {
+          var gy = board.y + board.cellH * r;
+          ctx.beginPath();
+          ctx.moveTo(board.x, gy);
+          ctx.lineTo(board.x + board.w, gy);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+
+        // 외곽 테두리
+        ctx.strokeStyle = "rgba(249,250,251,0.85)";
+        ctx.lineWidth = 3;
+        roundRectPath(board.x, board.y, board.w, board.h, 24);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(15,23,42,0.85)";
+        ctx.lineWidth = 1;
+        roundRectPath(board.x + 4, board.y + 4, board.w - 8, board.h - 8, 20);
+        ctx.stroke();
+      }
+
+      function drawPiece(p) {
+        var r = p.r;
+        var highlightX = p.x - r * 0.4;
+        var highlightY = p.y - r * 0.55;
+
+        var g = ctx.createRadialGradient(
+          highlightX, highlightY, 0,
+          p.x, p.y, r * 1.4
+        );
+
+        if (p.player === 1) {
+          g.addColorStop(0, "#fef9c3");
+          g.addColorStop(0.4, "#facc15");
+          g.addColorStop(1, "#92400e");
+        } else {
+          g.addColorStop(0, "#e0f2fe");
+          g.addColorStop(0.4, "#38bdf8");
+          g.addColorStop(1, "#0f172a");
+        }
+
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(15,23,42,0.9)";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r - 0.4, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 하이라이트
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.beginPath();
+        ctx.ellipse(
+          p.x - r * 0.35,
+          p.y - r * 0.55,
+          r * 0.32,
+          r * 0.22,
+          -0.6,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      }
+
+      function getClampedDragVector(piece, start, current) {
+        var rawDx = current.x - start.x;
+        var rawDy = current.y - start.y;
+        var maxDist = piece.r * MAX_DRAG_FACTOR;
+        var dist = Math.sqrt(rawDx * rawDx + rawDy * rawDy);
+        if (dist > maxDist && dist > 0) {
+          var scale = maxDist / dist;
+          return { dx: rawDx * scale, dy: rawDy * scale };
+        }
+        return { dx: rawDx, dy: rawDy };
+      }
+
+      function drawShotAim() {
+        if (!(dragMode === "shot" && dragPiece && phase === "playing")) return;
+        var v = getClampedDragVector(dragPiece, dragStart, pointerPos);
+        var dx = v.dx;
+        var dy = v.dy;
+        ctx.strokeStyle = "rgba(248,250,252,0.9)";
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(dragPiece.x, dragPiece.y);
+        ctx.lineTo(dragPiece.x + dx, dragPiece.y + dy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      function drawPieces() {
+        for (var i = 0; i < pieces.length; i++) {
+          drawPiece(pieces[i]);
+        }
+      }
+
+      function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBoard();
+        drawPieces();
+        drawShotAim();
+      }
+
+      // === 턴 / AI ===
+      function switchTurn() {
+        if (gameOver || phase !== "playing") return;
+        currentPlayer = (currentPlayer === 1) ? 2 : 1;
+        updateLabels();
+        if (currentPlayer === 2) {
+          scheduleAITurn();
+        }
+      }
+
+      function scheduleAITurn() {
+        if (gameOver || phase !== "playing") return;
+        if (anyMoving()) {
+          setTimeout(scheduleAITurn, 220);
+          return;
+        }
+
+        var aiPieces = [];
+        var humanPieces = [];
+        for (var i = 0; i < pieces.length; i++) {
+          if (pieces[i].player === 2) aiPieces.push(pieces[i]);
+          else if (pieces[i].player === 1) humanPieces.push(pieces[i]);
+        }
+        if (aiPieces.length === 0 || humanPieces.length === 0) {
+          checkGameOver();
+          return;
+        }
+
+        var bestAi = null;
+        var bestEnemy = null;
+        var bestDist = Infinity;
+        for (var aIdx = 0; aIdx < aiPieces.length; aIdx++) {
+          var a = aiPieces[aIdx];
+          for (var hIdx = 0; hIdx < humanPieces.length; hIdx++) {
+            var h = humanPieces[hIdx];
+            var dx = h.x - a.x;
+            var dy = h.y - a.y;
+            var d = Math.sqrt(dx * dx + dy * dy);
+            if (d < bestDist) {
+              bestDist = d;
+              bestAi = a;
+              bestEnemy = h;
+            }
+          }
+        }
+        if (!bestAi || !bestEnemy) return;
+
+        var tx = bestEnemy.x - bestAi.x;
+        var ty = bestEnemy.y - bestAi.y;
+        var dist = Math.sqrt(tx * tx + ty * ty);
+        if (dist === 0) return;
+
+        var maxDrag = bestAi.r * MAX_DRAG_FACTOR;
+        var dragLen = Math.min(dist, maxDrag * 0.9);
+        var ux = tx / dist;
+        var uy = ty / dist;
+
+        // 약간의 랜덤성
+        var randomScale = 0.8 + Math.random() * 0.4;
+        dragLen *= randomScale;
+
+        bestAi.vx = ux * dragLen * POWER;
+        bestAi.vy = uy * dragLen * POWER;
+
+        function waitAI() {
+          if (anyMoving()) {
+            requestAnimationFrame(waitAI);
+          } else {
+            switchTurn();
+          }
+        }
+        requestAnimationFrame(waitAI);
+      }
+
+      // === 입력 (Pointer 이벤트 통합) ===
+      function getCanvasPos(evt) {
+        var rect = canvas.getBoundingClientRect();
+        var scaleX = canvas.width / rect.width;
+        var scaleY = canvas.height / rect.height;
+        return {
+          x: (evt.clientX - rect.left) * scaleX,
+          y: (evt.clientY - rect.top) * scaleY
+        };
+      }
+
+      canvas.addEventListener("pointerdown", function (e) {
+        if (gameOver) return;
+
+        var pos = getCanvasPos(e);
+        pointerPos = pos;
+
+        // 배치 단계: 알 잡아서 움직이기
+        if (phase === "placement") {
+          for (var i = pieces.length - 1; i >= 0; i--) {
+            var p = pieces[i];
+            var dx = pos.x - p.x;
+            var dy = pos.y - p.y;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= p.r) {
+              dragMode = "placement";
+              dragPiece = p;
+              dragOffset.x = p.x - pos.x;
+              dragOffset.y = p.y - pos.y;
+              if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+              break;
+            }
+          }
+          return;
+        }
+
+        // 플레이 단계: 1P가 쏠 때만
+        if (phase === "playing") {
+          if (currentPlayer !== 1) return;
+          if (anyMoving()) return;
+
+          for (var j = pieces.length - 1; j >= 0; j--) {
+            var p2 = pieces[j];
+            var dx2 = pos.x - p2.x;
+            var dy2 = pos.y - p2.y;
+            var d2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+            if (d2 <= p2.r && p2.player === 1) {
+              dragMode = "shot";
+              dragPiece = p2;
+              dragStart = { x: pos.x, y: pos.y };
+              if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+              break;
+            }
+          }
+        }
+      });
+
+      canvas.addEventListener("pointermove", function (e) {
+        if (!dragMode || !dragPiece) return;
+        var pos = getCanvasPos(e);
+        pointerPos = pos;
+
+        if (dragMode === "placement" && phase === "placement") {
+          var targetX = pos.x + dragOffset.x;
+          var targetY = pos.y + dragOffset.y;
+          var midY = board.y + board.h / 2;
+
+          var minX = board.x + dragPiece.r;
+          var maxX = board.x + board.w - dragPiece.r;
+          var minY = board.y + dragPiece.r;
+          var maxY = board.y + board.h - dragPiece.r;
+
+          targetX = clamp(targetX, minX, maxX);
+          targetY = clamp(targetY, minY, maxY);
+
+          if (dragPiece.player === 1) {
+            // 1P: 아래쪽 절반
+            if (targetY < midY + board.cellH * 0.5) {
+              targetY = midY + board.cellH * 0.5;
+            }
+          } else {
+            // 2P: 위쪽 절반
+            if (targetY > midY - board.cellH * 0.5) {
+              targetY = midY - board.cellH * 0.5;
+            }
+          }
+
+          dragPiece.x = targetX;
+          dragPiece.y = targetY;
+        }
+      });
+
+      function endPointer(e) {
+        if (!dragMode || !dragPiece) return;
+
+        if (dragMode === "placement" && phase === "placement") {
+          // 그리드에 스냅
+          var colFloat = (dragPiece.x - board.x) / board.cellW;
+          var rowFloat = (dragPiece.y - board.y) / board.cellH;
+          var col = Math.round(colFloat);
+          var row = Math.round(rowFloat);
+
+          col = clamp(col, 0, board.cols - 1);
+          row = clamp(row, 0, board.rows - 1);
+
+          var midRow = (board.rows - 1) / 2;
+          if (dragPiece.player === 1 && row <= midRow) {
+            row = Math.round(midRow + 1);
+          } else if (dragPiece.player === 2 && row >= midRow) {
+            row = Math.round(midRow - 1);
+          }
+
+          var snapped = gridToPixel(col, row);
+          dragPiece.x = snapped.x;
+          dragPiece.y = snapped.y;
+        } else if (dragMode === "shot" && phase === "playing" && currentPlayer === 1) {
+          var v = getClampedDragVector(dragPiece, dragStart, pointerPos);
+          var dx = v.dx;
+          var dy = v.dy;
+          // 올려주신 파일과 동일한 방식: 드래그 방향의 반대로 속도 부여
+          dragPiece.vx = -dx * POWER;
+          dragPiece.vy = -dy * POWER;
+
+          function waitTurn() {
+            if (anyMoving()) {
+              requestAnimationFrame(waitTurn);
+            } else {
+              switchTurn();
+            }
+          }
+          requestAnimationFrame(waitTurn);
+        }
+
+        dragMode = null;
+        dragPiece = null;
+
+        if (canvas.releasePointerCapture && e.pointerId != null) {
+          try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+        }
+      }
+
+      canvas.addEventListener("pointerup", endPointer);
+      canvas.addEventListener("pointercancel", endPointer);
+      canvas.addEventListener("pointerleave", function (e) {
+        if (dragMode === "shot") {
+          endPointer(e);
+        } else if (dragMode === "placement") {
+          dragMode = null;
+          dragPiece = null;
+        }
+      });
+
+      // === 버튼/이벤트 ===
+      if (resetBtn) {
+        resetBtn.addEventListener("click", function () {
+          initPlacement();
+        });
+      }
+
+      if (restartBtn) {
+        restartBtn.addEventListener("click", function () {
+          initPlacement();
+        });
+      }
+
+      if (startBtn) {
+        startBtn.addEventListener("click", function () {
+          if (phase !== "placement") return;
+          phase = "playing";
+          currentPlayer = 1;
+          gameOver = false;
+          if (gameOverOverlay) gameOverOverlay.style.display = "none";
+          updateLabels();
+        });
+      }
+
+      countButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          if (phase !== "placement") return;
+          var side = parseInt(btn.getAttribute("data-side"), 10) || 1;
+          var delta = parseInt(btn.getAttribute("data-delta"), 10) || 0;
+          if (side === 1) {
+            p1Count = clamp(p1Count + delta, MIN_PIECES, MAX_PIECES);
+          } else {
+            p2Count = clamp(p2Count + delta, MIN_PIECES, MAX_PIECES);
+          }
+          initPlacement();
+        });
+      });
+
+      // === 루프 ===
+      function loop() {
+        updatePhysics();
+        render();
+        requestAnimationFrame(loop);
+      }
+
+      // 시작
+      resizeCanvas();
+      initPlacement();
+      updateLabels();
+      loop();
+      window.addEventListener("resize", function () {
+        // 화면 회전/리사이즈 시, 판 크기에 맞춰 배치 다시 맞춤
+        resetAll();
+      });
+    })();
+  </script>
+</body>
+</html>
