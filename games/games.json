@@ -3,8 +3,9 @@
   { "title": "배틀쉽",     "url": "games/battleship.html",    "thumb": "thumbnail/battleship.jpg", "tags": ["전략","AI"],  "desc": "적 함대 침몰" },
   { "title": "스도쿠",     "url": "games/sudoku.html",   "thumb": "thumbnail/sudoku.jpg", "tags": ["보드"],       "desc": "규칙 기반 숫자 퍼즐 게임" },
   { "title": "켄켄퍼즐",     "url": "games/kenken.html",   "thumb": "thumbnail/kenken.jpg", "tags": ["보드"],       "desc": "연산 숫자 게임" },
-  { "title": "오목",     "url": "games/gomoku.html",   "thumb": "thumbnail/gomoku.jpg", "tags": ["보드"],       "desc": "간단한 오목 대국" },
-  { "title": "바둑",     "url": "games/baduk.html",    "thumb": "thumbnail/baduk.jpg", "tags": ["보드"],       "desc": "간단한 바둑 대국" },
+  { "title": "오목",     "url": "games/gomoku.html",   "thumb": "thumbnail/gomoku.jpg", "tags": ["보드, AI"],       "desc": "간단한 오목 대국" },
+  { "title": "바둑",     "url": "games/baduk.html",    "thumb": "thumbnail/baduk.jpg", "tags": ["보드, AI"],       "desc": "간단한 바둑 대국" },
+  { "title": "알까기",     "url": "games/alkkagi.html",    "thumb": "thumbnail/alkkagi.jpg", "tags": ["보드, AI"],       "desc": "간단한 바둑 대국" },
   { "title": "체스",     "url": "games/chess.html",    "thumb": "thumbnail/chess.jpg", "tags": ["보드","AI"],  "desc": "간단한 체스 대국" },
   { "title": "장기",     "url": "games/janggi.html",    "thumb": "thumbnail/janggi.jpg", "tags": ["보드","AI"],  "desc": "간단한 장기 대국" },
   { "title": "고누",     "url": "games/gonu.html",    "thumb": "thumbnail/gonu.jpg", "tags": ["보드","AI"],  "desc": "우물/호박 고누" },
@@ -19,6 +20,7 @@
   { "title": "카드대전",     "url": "games/card/card.html",     "thumb": "thumbnail/card.jpg", "tags": ["퍼즐"],       "desc": "카드대전" },
   { "title": "갤러그",   "url": "games/galaga.html",   "thumb": "thumbnail/galaga.jpg", "tags": ["슈팅"],       "desc": "고전 비행 슈팅 게임" }
 ]
+
 
 
 
