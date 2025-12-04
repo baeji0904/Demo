@@ -226,7 +226,6 @@
   <div id="board-wrap" class="panel">
     <table id="grid" aria-label="켄켄 퍼즐판"></table>
 
-    <!-- 모바일/PC 공통 숫자 패드 -->
     <div id="num-pad"></div>
 
     <div class="info">
@@ -241,13 +240,13 @@
 (function(){
   'use strict';
 
-  const gridEl   = document.getElementById('grid');
-  const padEl    = document.getElementById('num-pad');
-  const selSize  = document.getElementById('sel-size');
-  const btnNew   = document.getElementById('btn-new');
-  const btnCheck = document.getElementById('btn-check');
-  const btnClear = document.getElementById('btn-clear');
-  const statusEl = document.getElementById('status-label');
+  const gridEl    = document.getElementById('grid');
+  const padEl     = document.getElementById('num-pad');
+  const selSize   = document.getElementById('sel-size');
+  const btnNew    = document.getElementById('btn-new');
+  const btnCheck  = document.getElementById('btn-check');
+  const btnClear  = document.getElementById('btn-clear');
+  const statusEl  = document.getElementById('status-label');
 
   const S = {
     size:4,
@@ -270,16 +269,61 @@
     return Math.floor(Math.random()*max);
   }
 
-  // 라틴 스퀘어 생성 (간단 회전 방식)
+  // 배열 섞기 (Fisher-Yates)
+  function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // 라틴 스퀘어 생성 (완전 랜덤화)
   function generateSolution(n){
-    const grid = [];
-    for(let r=0;r<n;r++){
-      const row=[];
-      for(let c=0;c<n;c++){
+    // 1. 기본 라틴 스퀘어 생성 (순차적)
+    let grid = [];
+    for(let r=0; r<n; r++){
+      let row = [];
+      for(let c=0; c<n; c++){
         row.push((c+r)%n + 1);
       }
       grid.push(row);
     }
+
+    // 2. 행(Row) 섞기
+    // 같은 행 전체를 다른 행과 바꿔도, 각 열에서의 중복성은 깨지지 않음
+    shuffleArray(grid);
+
+    // 3. 열(Column) 섞기
+    // 같은 열 전체를 다른 열과 바꿔도, 각 행에서의 중복성은 깨지지 않음
+    // 열을 섞기 위해 전치(transpose) -> 행 섞기 -> 전치 하거나, 직접 열을 swap
+    // 여기선 열끼리 교환하는 방식을 사용
+    const colIndices = Array.from({length:n}, (_, i) => i);
+    shuffleArray(colIndices);
+    
+    // 새로운 그리드에 섞인 열 적용
+    const newGrid = [];
+    for(let r=0; r<n; r++){
+      const newRow = [];
+      for(let c=0; c<n; c++){
+        newRow.push(grid[r][colIndices[c]]);
+      }
+      newGrid.push(newRow);
+    }
+    grid = newGrid;
+
+    // 4. 숫자 매핑 섞기 (1->5, 2->3 등으로 숫자 자체를 변경)
+    // 구조는 유지하되 숫자를 뒤섞어 패턴을 완전히 감춤
+    const mapping = Array.from({length:n}, (_, i) => i + 1);
+    shuffleArray(mapping);
+
+    for(let r=0; r<n; r++){
+      for(let c=0; c<n; c++){
+        // grid 값은 1~n, mapping 인덱스는 0~n-1
+        grid[r][c] = mapping[grid[r][c] - 1];
+      }
+    }
+
     return grid;
   }
 
