@@ -319,7 +319,6 @@
   </header>
 
   <div class="layout">
-    <!-- 왼쪽 : 게임 화면 -->
     <section class="panel">
       <div class="hud">
         <span class="tag">이동 수 <b id="moves">0</b></span>
@@ -330,7 +329,6 @@
       <div class="game-shell">
         <div id="board" class="board">
           <div class="board-top">
-            <!-- Free cells -->
             <div class="pile pile-free" data-pile-type="free" data-index="0">
               <div class="pile-label"><span>FREE 1</span></div>
               <div class="pile-body"></div>
@@ -352,10 +350,7 @@
               <div class="pile-empty-hint">★</div>
             </div>
 
-            <div></div> <!-- spacer -->
-
-            <!-- Foundations (스페이드 / 하트 / 클로버 / 다이아몬드) -->
-            <div class="pile pile-foundation" data-pile-type="foundation" data-index="0">
+            <div></div> <div class="pile pile-foundation" data-pile-type="foundation" data-index="0">
               <div class="pile-label">
                 <span>기초 1</span><span class="symbol">♠</span>
               </div>
@@ -385,7 +380,6 @@
             </div>
           </div>
 
-          <!-- Cascades -->
           <div class="board-bottom">
             <div class="pile pile-cascade" data-pile-type="cascade" data-index="0">
               <div class="pile-label"><span>열 1</span></div>
@@ -435,7 +429,6 @@
       </div>
     </section>
 
-    <!-- 오른쪽 : 정보 / 조작 패널 -->
     <aside class="panel">
       <div class="row" style="justify-content:space-between;margin-bottom:6px;">
         <span class="pill-label">
@@ -722,8 +715,7 @@
     }
   }
 
-  // --- 핵심 이동 함수 (수정됨) ---
-  // opts.cardIndex : 해당 파일 내에서의 인덱스 (묶음 이동의 시작점)
+  // --- 핵심 이동 함수 ---
   function tryMove(srcType, srcIndex, destType, destIndex, opts){
     const silent = opts && opts.silent;
     let srcCardIndex = (opts && typeof opts.cardIndex === 'number') ? opts.cardIndex : -1;
@@ -759,7 +751,6 @@
     const headCard = cardsToMove[0]; // 이동하려는 묶음의 가장 아래(숫자가 큰) 카드
 
     // 2. 목적지 착수 가능 여부 확인
-    // (묶음인 경우 headCard만 목적지 룰에 맞으면 됨. 나머지는 이미 소스에서 검증됨)
     if(!canPlace(headCard, destType, destIndex)){
       if(!silent) setStatus('규칙상 그곳에 놓을 수 없습니다.','bad');
       return false;
@@ -814,8 +805,7 @@
     el.classList.add('card');
     el.classList.add(cardColor(card)==='red' ? 'red' : 'black');
 
-    // 선택된 카드 하이라이트 (묶음인 경우 해당 카드만 표시 or 묶음 전체 로직)
-    // 여기서는 "클릭한 카드"만 선택 표시 (UX상 직관적)
+    // 선택된 카드 하이라이트
     if(game.selected &&
        game.selected.pileType === pileType &&
        game.selected.pileIndex === pileIndex &&
@@ -913,7 +903,6 @@
 
     if(pileType === 'foundation'){ return; }
 
-    // 더블클릭 자동이동은 1장일 때만 (직관성 위해)
     if(pileType === 'cascade'){
       const pile = game.cascades[pileIndex];
       if(cardIndex !== pile.length-1) return; // 맨 위 카드만
@@ -980,7 +969,6 @@
     }
 
     // 다른 곳 클릭 -> 이동 시도
-    // 목적지 클릭 시 cardIndex는 중요하지 않음 (목적지 더미 전체가 대상)
     if(tryMove(sel.pileType, sel.pileIndex, pileType, pileIndex, {cardIndex: sel.cardIndex})){
       render();
     } else {
@@ -1000,15 +988,15 @@
     }
   }
 
-  // 빈 공간(Pile 자체) 클릭 처리
+  // 빈 공간(Pile 자체) 클릭 처리 - 여기가 수정됨
   function onPileClick(ev){
     const pileEl = ev.currentTarget;
     const pileType = pileEl.dataset.pileType;
-    const pileIndex = Number(el.dataset.index || pileEl.getAttribute('data-index')); // dataset 호환성
+    // 수정: el -> pileEl
+    const pileIndex = Number(pileEl.dataset.index); 
     const sel = game.selected;
 
     if(!sel){
-      // 빈 공간 클릭은 무시 (카드가 없으므로)
       return;
     }
 
@@ -1044,4 +1032,3 @@
 </script>
 </body>
 </html>
-
