@@ -1,94 +1,3 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Baduk / Go – 1P vs AI · WebWorker + SGF 저장/불러오기</title>
-<style>
-  :root{--bg:#0e1220;--ink:#e9edff;--muted:#9aa3c8;--panel:#171a2f;--accent:#7aa2ff}
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto}
-  .wrap{max-width:980px;margin:0 auto;padding:16px}
-  header{display:flex;justify-content:space-between;gap:12px;align-items:center}
-  h1{font-size:20px;margin:0}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  .panel{background:var(--panel);border:1px solid #242a49;border-radius:16px;padding:12px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
-  .btn{padding:8px 12px;border:1px solid #2a315e;border-radius:12px;background:#1b2145;color:var(--ink);cursor:pointer}
-  .btn-primary{background:linear-gradient(180deg,#2e4cff,#2337a7);border-color:#3a50ff}
-  .tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #2b325c;border-radius:999px;color:var(--muted);font-size:12px}
-  #board{width:100%;max-width:760px;aspect-ratio:1;border-radius:12px;background:#1a1730;touch-action:none}
-  .muted{color:var(--muted)}
-  .hint{font-size:13px;color:var(--muted)}
-  select{background:#1b2145;color:var(--ink);border:1px solid #2a315e;border-radius:10px;padding:4px 8px}
-  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-  label.switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted)}
-  input[type="file"]{display:none}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <h1>바둑 Demo</h1>
-    <div class="row">
-      <button id="btn-undo" class="btn">무르기</button>
-      <button id="btn-pass" class="btn">패스</button>
-      <button id="btn-score" class="btn">임시 집계</button>
-      <button id="btn-reset" class="btn">새로 시작</button>
-      <button id="btn-save" class="btn btn-primary">저장(SGF)</button>
-      <label class="btn" for="file-open">불러오기</label>
-      <input id="file-open" type="file" accept=".sgf,.txt" />
-    </div>
-  </header>
-
-  <div class="row" style="margin:10px 0">
-    <span class="tag">모드
-      <select id="modeSel">
-        <option value="pvp">2인 대전</option>
-        <option value="ai" selected>1인 vs 컴퓨터</option>
-      </select>
-    </span>
-    <span class="tag">난이도
-      <select id="lvlSel">
-        <option value="1">Lv 1 (초하수)</option>
-        <option value="2">Lv 2 (하수)</option>
-        <option value="3" selected>Lv 3 (중수)</option>
-        <option value="4">Lv 4 (고수)</option>
-        <option value="5">Lv 5 (초고수)</option>
-      </select>
-    </span>
-    <span class="tag">플레이어 색
-      <select id="colorSel">
-        <option value="1" selected>흑 (선)</option>
-        <option value="2">백</option>
-      </select>
-    </span>
-    <span class="tag">보드
-      <select id="sizeSel">
-        <option value="9">9×9 (입문)</option>
-        <option value="13">13×13</option>
-        <option value="19" selected>19×19 (정규)</option>
-      </select>
-    </span>
-    <span class="tag"><label class="switch"><input id="confirmToggle" type="checkbox" checked> 두 번 탭 착수</label></span>
-    <span class="tag">AI 상태: <strong id="aiStat">대기</strong></span>
-  </div>
-
-  <div class="row" style="margin:10px 0">
-    <span class="tag">차례 <strong id="turn">흑</strong></span>
-    <span class="tag">흑 포획 <strong id="capB">0</strong></span>
-    <span class="tag">백 포획 <strong id="capW">0</strong></span>
-    <span class="tag">금수/패: <strong id="status" class="muted">—</strong></span>
-  </div>
-
-  <div class="panel">
-    <canvas id="board" width="760" height="760" aria-label="Baduk board"></canvas>
-    <div class="hint" style="margin-top:8px">두 번 탭(예비→확정). 규칙: 포획, 자살금지, 단패(직전 위치 반복). 저장/불러오기: SGF 유사 포맷.
-      Web Worker로 AI를 분리해 UI 멈춤이 없습니다.</div>
-  </div>
-
-  <div id="aria-live" class="sr-only" aria-live="polite"></div>
-</div>
-
 <script>
 (function(){
   'use strict';
@@ -111,21 +20,21 @@
   const fileOpen = document.getElementById('file-open');
 
   // ===== Game State =====
-  let N = 19; // 9/13/19
+  let N = 19; 
   let grid = new Array(N*N).fill(0); // 0 empty, 1 black, 2 white
   let toPlay = 1; // 1=B, 2=W
-  let capB = 0, capW = 0; // captured stones
-  let lastHash = null; // simple ko
-  const undoStack = []; // stack of states
+  let capB = 0, capW = 0; 
+  let lastHash = null; 
+  const undoStack = []; 
   let hover = null;
   let lastMove = null;
-  let pendingMove = null; // two-tap confirm
-  let moves = []; // for SGF
+  let pendingMove = null; 
+  let moves = []; 
 
   // Mode & AI
-  let mode = 'ai';   // 'ai' or 'pvp'
-  let playerColor = 1; // 1 or 2
-  let level = 3; // 1..5
+  let mode = 'ai';   
+  let playerColor = 1; 
+  let level = 3; 
 
   // Worker
   let aiWorker = null; let aiReqId = 0; let aiBusy = false;
@@ -143,15 +52,16 @@
     const color = g[idx(x,y)];
     if(color===0) return {stones:[], libs:0};
     const Q=[[x,y]]; const seen=new Set([idx(x,y)]); const stones=[[x,y]]; let libs=0;
+    const libSet = new Set(); // 중복 공배 방지
     while(Q.length){
       const [cx,cy]=Q.pop();
       for(const [nx,ny] of neighbors(cx,cy)){
         const v = g[idx(nx,ny)];
-        if(v===0){ libs++; continue; }
-        if(v===color){ const k=idx(nx,ny); if(!seen.has(k)){ seen.add(k); stones.push([nx,ny]); Q.push([nx,ny]); } }
+        if(v===0){ libSet.add(idx(nx,ny)); }
+        else if(v===color){ const k=idx(nx,ny); if(!seen.has(k)){ seen.add(k); stones.push([nx,ny]); Q.push([nx,ny]); } }
       }
     }
-    return {stones, libs};
+    return {stones, libs: libSet.size};
   }
 
   function copyState(){ return {grid: cloneGrid(grid), toPlay, capB, capW, lastHash, lastMove, moves: moves.slice()}; }
@@ -163,30 +73,51 @@
     if(grid[idx(x,y)]!==0){ if(!options.silent) setStatus('이미 돌이 있습니다'); return false; }
 
     const prev = copyState();
-    undoStack.push(prev);
-
-    grid[idx(x,y)] = toPlay; // tentative
+    
+    // 가착수
+    grid[idx(x,y)] = toPlay; 
     const opp = 3 - toPlay;
 
-    // capture adjacent opponent groups with no liberties
+    // 상대 돌 따내기 검사
     let captured = 0;
+    const deadGroups = [];
     for(const [nx,ny] of neighbors(x,y)){
       if(grid[idx(nx,ny)]===opp){
         const {stones, libs} = groupAtG(grid, nx, ny);
-        if(libs===0){ for(const [sx,sy] of stones){ grid[idx(sx,sy)] = 0; } captured += stones.length; }
+        if(libs===0){ 
+            deadGroups.push(stones);
+            captured += stones.length; 
+        }
       }
     }
+    
+    // 따내기 실행
+    for(const grp of deadGroups) {
+        for(const [sx,sy] of grp) grid[idx(sx,sy)] = 0;
+    }
 
-    // suicide check
-    const self = groupAtG(grid, x, y);
-    if(self.libs===0){ restoreState(prev); undoStack.pop(); if(!options.silent) setStatus('자살 금지수'); return false; }
+    // 자살수 금지 (상대를 따냈으면 자살 아님)
+    if(captured === 0) {
+        const self = groupAtG(grid, x, y);
+        if(self.libs===0){ 
+            restoreState(prev); 
+            if(!options.silent) setStatus('자살 금지수'); 
+            return false; 
+        }
+    }
 
-    // simple ko
+    // 패(Ko) 검사
     const h = hashGrid(grid);
-    if(lastHash && h===lastHash){ restoreState(prev); undoStack.pop(); if(!options.silent) setStatus('패 규칙 위반(직전과 동일)'); return false; }
+    if(lastHash && h===lastHash){ 
+        restoreState(prev); 
+        if(!options.silent) setStatus('패 규칙 위반'); 
+        return false; 
+    }
 
+    // 실제 착수 처리
+    undoStack.push(prev);
     if(captured>0){ if(toPlay===1) capB += captured; else capW += captured; }
-    lastHash = hashGrid(prev.grid);
+    lastHash = h;
     moves.push({c:toPlay,x,y});
     toPlay = opp; lastMove = [x,y]; pendingMove=null;
 
@@ -198,7 +129,7 @@
   function undo(){ if(aiBusy) return; if(undoStack.length===0) return; const s = undoStack.pop(); restoreState(s); pendingMove=null; setStatus('무르기'); updateHUD(); draw(); }
   function reset(size){ if(size) N = size; grid = new Array(N*N).fill(0); toPlay = 1; capB = 0; capW = 0; lastHash = null; undoStack.length=0; lastMove=null; pendingMove=null; moves=[]; updateHUD(); fit(); draw(); maybeAI(); }
 
-  // ===== Scoring =====
+  // ===== Scoring (Territory Only for HUD) =====
   function territoryScoreG(g){
     const visited = new Array(N*N).fill(false); let terrB = 0, terrW = 0;
     for(let y=0;y<N;y++)for(let x=0;x<N;x++){
@@ -216,7 +147,14 @@
     }
     return {terrB, terrW};
   }
-  function doScore(){ const {terrB, terrW} = territoryScoreG(grid); const stonesB = grid.filter(v=>v===1).length; const stonesW = grid.filter(v=>v===2).length; const scoreB = stonesB + terrB + capB; const scoreW = stonesW + terrW + capW + 6.5; alert(`임시 집계\n흑: ${scoreB}\n백: ${scoreW.toFixed(1)}`); }
+  function doScore(){ 
+      const {terrB, terrW} = territoryScoreG(grid); 
+      const stonesB = grid.filter(v=>v===1).length; 
+      const stonesW = grid.filter(v=>v===2).length; 
+      const scoreB = stonesB + terrB + capB; 
+      const scoreW = stonesW + terrW + capW + 6.5; 
+      alert(`임시 집계\n흑: ${scoreB} (돌${stonesB}+집${terrB}+사석${capB})\n백: ${scoreW.toFixed(1)} (돌${stonesW}+집${terrW}+사석${capW}+덤6.5)`); 
+  }
 
   // ===== Rendering =====
   function fit(){ const css = cvs.clientWidth; cvs.width = Math.floor(css*DPR); cvs.height = Math.floor(css*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
@@ -246,8 +184,8 @@
   cvs.addEventListener('click', (e)=>{ if(aiBusy) return; const [x,y]=xyFromClient(e); if(!inside(x,y)) return; if(mode==='ai' && toPlay!==playerColor) return; handleTap(x,y); });
   cvs.addEventListener('touchstart', (e)=>{ e.preventDefault(); if(aiBusy) return; const [x,y]=xyFromClient(e); if(!inside(x,y)) return; if(mode==='ai' && toPlay!==playerColor) return; handleTap(x,y); }, {passive:false});
 
-  // ===== HUD =====
-  function updateHUD(){ turnEl.textContent = (toPlay===1? '흑' : '백'); capBEl.textContent = capB; capWEl.textContent = capW; announce(`현재 ${toPlay===1? '흑' : '백'} 차례. 흑 포획 ${capB}개, 백 포획 ${capW}개.`); }
+  // ===== HUD & SGF =====
+  function updateHUD(){ turnEl.textContent = (toPlay===1? '흑' : '백'); capBEl.textContent = capB; capWEl.textContent = capW; announce(`현재 ${toPlay===1? '흑' : '백'} 차례.`); }
   document.getElementById('btn-undo').onclick = undo;
   document.getElementById('btn-pass').onclick = ()=>{ if(aiBusy) return; pass(); maybeAI(); };
   document.getElementById('btn-score').onclick = doScore;
@@ -256,8 +194,6 @@
   modeSel.onchange = ()=>{ mode = modeSel.value; pendingMove=null; draw(); maybeAI(); };
   lvlSel.onchange = ()=>{ level = parseInt(lvlSel.value,10); };
   colorSel.onchange = ()=>{ playerColor = parseInt(colorSel.value,10); reset(N); };
-
-  // ===== SGF 유사 포맷 =====
   const ABC = 'abcdefghijklmnopqrstuvwxyz';
   function xyToSgf(x,y){ return ABC[x] + ABC[y]; }
   function sgfToXY(s){ return [ABC.indexOf(s[0]), ABC.indexOf(s[1])]; }
@@ -265,49 +201,310 @@
     const header = `(;GM[1]FF[4]SZ[${N}]KM[6.5]PB[Black]PW[White]`;
     const body = moves.map(m=> m.pass? `;${m.c===1?'B':'W'}[]` : `;${m.c===1?'B':'W'}[${xyToSgf(m.x,m.y)}]`).join('');
     const tail = `)`;
-    const text = header + body + tail;
-    const blob = new Blob([text], {type:'text/plain'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `game_${N}x${N}.sgf`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    const blob = new Blob([header+body+tail], {type:'text/plain'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `game_${N}x${N}.sgf`; a.click(); URL.revokeObjectURL(a.href);
   }
   function importSGF(text){
-    // reset and replay
     const sizeMatch = text.match(/SZ\[(\d+)\]/);
-    const newN = sizeMatch? parseInt(sizeMatch[1],10) : 19;
-    N = newN; sizeSel.value = String(N);
-    grid = new Array(N*N).fill(0); toPlay=1; capB=0; capW=0; lastHash=null; undoStack.length=0; lastMove=null; pendingMove=null; moves=[]; fit(); draw(); updateHUD();
-    const re = /;([BW])\[([^\]]*)\]/g;
-    let m; while((m=re.exec(text))){
-      const color = (m[1]==='B'?1:2);
-      if(m[2]==='' ){ // pass
-        lastHash = hashGrid(grid); toPlay = 3 - toPlay; moves.push({c:color,pass:true}); continue;
-      }
-      const [x,y] = sgfToXY(m[2]);
-      // play silently (no AI)
-      const ok = play(x,y,{silent:true});
-      if(!ok){ console.warn('불러오기 중 무시된 수:', m[0]); }
+    if(sizeMatch) { N = parseInt(sizeMatch[1],10); sizeSel.value = String(N); }
+    reset(N);
+    const re = /;([BW])\[([^\]]*)\]/g; let m;
+    while((m=re.exec(text))){
+      const c = (m[1]==='B'?1:2);
+      if(m[2]==='') { toPlay=3-toPlay; moves.push({c,pass:true}); continue; }
+      const [x,y] = sgfToXY(m[2]); play(x,y,{silent:true});
     }
     draw(); updateHUD();
   }
   btnSave.addEventListener('click', exportSGF);
-  fileOpen.addEventListener('change', async (e)=>{
-    const file = e.target.files[0]; if(!file) return;
-    const text = await file.text();
-    importSGF(text);
-    mode='pvp'; modeSel.value='pvp'; // 불러온 뒤엔 기본 2인 모드로 둠 (원하면 다시 1인으로)
-  });
+  fileOpen.addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(f) importSGF(await f.text()); mode='pvp'; modeSel.value='pvp'; });
 
-  // ===== Web Worker (AI) =====
+  // ===== Web Worker (Better AI) =====
   function makeWorker(){
     if(aiWorker) aiWorker.terminate();
-    const src = `self.onmessage = (ev)=>{const d=ev.data; if(d.type!=="think") return; const req=d; const N=req.N; const grid=req.grid; const lastHash=req.lastHash; const level=req.level; const color=req.color; function idx(x,y){return y*N+x} function inside(x,y){return x>=0&&y>=0&&x<N&&y<N} function neighbors(x,y){return [[x+1,y],[x-1,y],[x,y+1],[x,y-1]].filter(p=>inside(p[0],p[1]))} function hashGrid(g){return g.join('')} function groupAtG(g,x,y){const c=g[idx(x,y)]; if(c===0) return {stones:[],libs:0}; const Q=[[x,y]], seen=new Set([idx(x,y)]), stones=[[x,y]]; let libs=0; while(Q.length){const [cx,cy]=Q.pop(); for(const [nx,ny] of neighbors(cx,cy)){const v=g[idx(nx,ny)]; if(v===0){libs++;continue} if(v===c){const k=idx(nx,ny); if(!seen.has(k)){seen.add(k); stones.push([nx,ny]); Q.push([nx,ny])}}}} return {stones,libs}} function simulateMove(g,x,y,color,lastHashRef){ if(!inside(x,y)||g[idx(x,y)]!==0) return {ok:false}; const opp=3-color; const ng=g.slice(); ng[idx(x,y)]=color; let captured=0; for(const [nx,ny] of neighbors(x,y)){ if(ng[idx(nx,ny)]===opp){ const r=groupAtG(ng,nx,ny); if(r.libs===0){ for(const [sx,sy] of r.stones) ng[idx(sx,sy)]=0; captured+=r.stones.length } } } const self=groupAtG(ng,x,y); if(self.libs===0) return {ok:false}; const h=hashGrid(ng); if(lastHashRef && h===lastHashRef) return {ok:false,ko:true}; return {ok:true,grid:ng,captured, newLastHash: hashGrid(g)} } function inAtari(g,x,y){const c=g[idx(x,y)]; if(!c) return false; const r=groupAtG(g,x,y); return r.libs===1} function neighbors2(x,y){const pts=[]; for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++){ if(dx===0&&dy===0) continue; if(Math.abs(dx)+Math.abs(dy)<=2){ const nx=x+dx, ny=y+dy; if(inside(nx,ny)) pts.push([nx,ny]) } } return pts} function listCandidatesTight(g){ const cand=new Set(); let has=false; for(let y=0;y<N;y++) for(let x=0;x<N;x++){ if(g[idx(x,y)]){has=true; for(const [nx,ny] of neighbors2(x,y)) if(g[idx(nx,ny)]===0) cand.add(nx+','+ny) } } if(!has){ const c=Math.floor(N/2); return [[c,c]] } return Array.from(cand).map(s=>s.split(',').map(Number)) } function policyPrior(g,x,y,color){ const opp=3-color; let s=0; const mid=(N-1)/2; s+=-22*Math.hypot(x-mid,y-mid); for(const [nx,ny] of neighbors(x,y)){ const v=g[idx(nx,ny)]; if(v===color) s+=12; else if(v===opp) s+=18; if(v===opp&&inAtari(g,nx,ny)) s+=120; if(v===color&&inAtari(g,nx,ny)) s+=90 } return s } function generateCandidates(g,color,lastHashRef){ const raw=listCandidatesTight(g); const moves=[]; if(raw.length===1){ const [cx,cy]=raw[0]; const r=simulateMove(g,cx,cy,color,lastHashRef); return r.ok?[{x:cx,y:cy,r,urgent:0,prior:0}]:[] } for(const [x,y] of raw){ const r=simulateMove(g,x,y,color,lastHashRef); if(!r.ok) continue; let urgent=0; for(const [nx,ny] of neighbors(x,y)){ const v=g[idx(nx,ny)]; if(v===3-color && inAtari(g,nx,ny)) urgent=Math.max(urgent,3); if(v===color && inAtari(g,nx,ny)) urgent=Math.max(urgent,2) } const prior = policyPrior(g,x,y,color)+urgent*50+(r.captured||0)*60; moves.push({x,y,r,urgent,prior}) } moves.sort((a,b)=>b.prior-a.prior); const TOP=(level<=2?10:level===3?16:level===4?22:26); return moves.slice(0,TOP) } function territoryScoreG(g){ const N2=N*N; const visited=new Array(N2).fill(false); let terrB=0,terrW=0; function inside(x,y){return x>=0&&y>=0&&x<N&&y<N} function idx(x,y){return y*N+x} function neighbors(x,y){return [[x+1,y],[x-1,y],[x,y+1],[x,y-1]].filter(p=>inside(p[0],p[1]))} for(let y=0;y<N;y++) for(let x=0;x<N;x++){ const k=idx(x,y); if(visited[k]||g[k]!==0) continue; const Q=[[x,y]]; visited[k]=true; const empties=[[x,y]]; const adj=new Set(); while(Q.length){ const [cx,cy]=Q.pop(); for(const [nx,ny] of neighbors(cx,cy)){ const v=g[idx(nx,ny)]; if(v===0){ const kk=idx(nx,ny); if(!visited[kk]){ visited[kk]=true; Q.push([nx,ny]); empties.push([nx,ny]) } } else adj.add(v) } } if(adj.size===1){ if(adj.has(1)) terrB+=empties.length; else terrW+=empties.length } } return {terrB,terrW} } function evalBoardFast(g,color){ const t=territoryScoreG(g); const b=g.filter(v=>v===1).length,w=g.filter(v=>v===2).length; const aB=b+t.terrB, aW=w+t.terrW+6.5; const mid=(N-1)/2; let infl=0; for(let y=0;y<N;y++)for(let x=0;x<N;x++){ const v=g[idx(x,y)]; if(!v) continue; const wgt=1/(1+Math.hypot(x-mid,y-mid)); infl += (v===color? wgt : -wgt) } return (color===1?(aB-aW):(aW-aB)) + infl*0.5 } function rolloutWinner(g0,toMove0,lastH0,maxSteps){ let g=g0.slice(), tm=toMove0, lastH=lastH0, passes=0, steps=0; while(steps++<maxSteps){ const cand=generateCandidates(g,tm,lastH); if(cand.length===0){ if(++passes>=2) break; lastH=hashGrid(g); tm=3-tm; continue } passes=0; const caps=cand.filter(m=>m.r.captured>0); const saves=cand.filter(m=>m.urgent>=2); const pool=(caps.length?caps:(saves.length?saves:cand)); const m=pool[(Math.random()*pool.length)|0]; g=m.r.grid; lastH=m.r.newLastHash; tm=3-tm } const t=territoryScoreG(g); const b=g.filter(v=>v===1).length,w=g.filter(v=>v===2).length; const sB=b+t.terrB, sW=w+t.terrW+6.5; return sB>sW?1:2 } function aiChooseMove(){ const cand=generateCandidates(grid,color,lastHash); if(cand.length===0) return null; for(const m of cand) m.greedy = evalBoardFast(m.r.grid,color) + m.prior*0.02; cand.sort((a,b)=>b.greedy-a.greedy); if(level<=2) return cand[0]; const budget=(level===3?380: level===4?950: 1700); const deadline=Date.now()+budget; const C=1.35, W=new Map(), Nn=new Map(); const key=m=>m.x+','+m.y; for(const m of cand){ const k=key(m); const q0=0.5+Math.max(-0.45,Math.min(0.45,m.prior/420)); W.set(k,q0); Nn.set(k,1) } while(Date.now()<deadline){ let sel=null,best=-1e9; const total=1+Array.from(Nn.values()).reduce((a,b)=>a+b,0); for(const m of cand){ const k=key(m), n=Nn.get(k)||0, w=W.get(k)||0; const q=n? (w/n):0.5; const u=q + C*Math.sqrt(Math.log(total+1)/(n+1)); if(u>best){ best=u; sel=m } } const winner=rolloutWinner(sel.r.grid, 3-color, sel.r.newLastHash, Math.max(60,N*N)); const k=key(sel); Nn.set(k,(Nn.get(k)||0)+1); if(winner===color) W.set(k,(W.get(k)||0)+1) } let ans=null,bestWR=-1,tie=-1; for(const m of cand){ const k=key(m); const n=Nn.get(k)||1, w=W.get(k)||0, wr=w/n; const t=(m.r.captured||0)*2+(m.urgent||0); if(wr>bestWR || (wr===bestWR && t>tie)){ bestWR=wr; tie=t; ans=m } } return ans||cand[0] } const move=aiChooseMove(); postMessage({id:req.id, move}) }`;
+    // Improved AI Logic: Smart Playouts + Eye Protection + Area Scoring
+    const src = `
+      self.onmessage = (ev) => {
+        const d = ev.data;
+        if(d.type !== "think") return;
+        const { N, grid, lastHash, level, color, id } = d;
+        const OPP = 3 - color;
+        
+        // --- Helper Functions ---
+        function idx(x,y){ return y*N + x; }
+        function inside(x,y){ return x>=0 && y>=0 && x<N && y<N; }
+        function neighbors(x,y){ 
+          const res=[]; 
+          if(x>0) res.push([x-1,y]); if(x<N-1) res.push([x+1,y]);
+          if(y>0) res.push([x,y-1]); if(y<N-1) res.push([x,y+1]);
+          return res;
+        }
+        function hashGrid(g){ return g.join(''); }
+
+        // --- Logic: Liberties & Groups ---
+        function getLiberties(g, x, y, c) {
+          const stack = [[x,y]]; const seen = new Set([idx(x,y)]); let libs = 0;
+          const libSet = new Set();
+          while(stack.length) {
+            const [cx, cy] = stack.pop();
+            for(const [nx, ny] of neighbors(cx, cy)) {
+              const v = g[idx(nx,ny)];
+              if(v === 0) libSet.add(idx(nx,ny));
+              else if(v === c) {
+                const k = idx(nx,ny);
+                if(!seen.has(k)) { seen.add(k); stack.push([nx,ny]); }
+              }
+            }
+          }
+          return libSet.size;
+        }
+
+        // --- Logic: Simulation (Play) ---
+        function simulate(g, x, y, c, lHash) {
+            if(g[idx(x,y)] !== 0) return {ok:false};
+            const ng = g.slice();
+            ng[idx(x,y)] = c;
+            const opp = 3 - c;
+            let captured = 0;
+            // Check captures
+            for(const [nx,ny] of neighbors(x,y)) {
+                if(ng[idx(nx,ny)] === opp) {
+                    const libs = getLiberties(ng, nx, ny, opp);
+                    if(libs === 0) {
+                        // Remove group
+                        const stack=[[nx,ny]]; const seen=new Set([idx(nx,ny)]);
+                        ng[idx(nx,ny)]=0; captured++;
+                        while(stack.length){
+                            const [cx,cy]=stack.pop();
+                            for(const [ax,ay] of neighbors(cx,cy)){
+                                if(ng[idx(ax,ay)]===opp){
+                                    const k=idx(ax,ay);
+                                    if(!seen.has(k)){ seen.add(k); ng[k]=0; captured++; stack.push([ax,ay]); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Suicide Check
+            if(captured === 0 && getLiberties(ng, x, y, c) === 0) return {ok:false};
+            // Ko Check (Simple)
+            const newHash = hashGrid(ng);
+            if(lHash && newHash === lHash) return {ok:false, ko:true};
+
+            return {ok:true, grid:ng, captured, newHash};
+        }
+
+        // --- Logic: Eye Protection ---
+        // 자신의 '진짜 집(Eye)'에는 착수하지 않도록 함 (매우 중요)
+        function isEye(g, x, y, c) {
+            // 1. 4방향이 모두 내 돌이거나 벽이어야 함
+            for(const [nx,ny] of neighbors(x,y)) {
+                if(g[idx(nx,ny)] !== c) return false;
+            }
+            // 2. 대각선 검사 (귀/변/중앙에 따라 다름)
+            let diagCount = 0; let myDiag = 0;
+            const diags = [[x-1,y-1],[x+1,y-1],[x-1,y+1],[x+1,y+1]];
+            for(const [dx,dy] of diags) {
+                if(!inside(dx,dy)) { diagCount++; myDiag++; continue; } // 벽은 내편 취급
+                diagCount++;
+                if(g[idx(dx,dy)] === c) myDiag++;
+            }
+            // 진짜 집 조건: 대각선 4개 중 3개 이상이 내 돌(또는 벽)
+            return myDiag >= 3;
+        }
+
+        // --- Logic: Smart Rollout ---
+        // 랜덤이지만, 단수(Atari)를 치거나 내 돌을 살리는 수를 우선함
+        function getSmartMove(g, c, lHash) {
+            const cands = [];
+            const urgent = [];
+            const empties = [];
+            
+            // 보드 전체 스캔 (무거우면 셔플된 인덱스 일부만 스캔)
+            for(let i=0; i<N*N; i++) if(g[i]===0) empties.push(i);
+            
+            // 너무 많으면 랜덤 샘플링 (속도 최적화)
+            // 하지만 초반 포석을 위해 기존 돌 주변 위주로 필터링하면 좋음
+            // 여기서는 단순화하여 랜덤 셔플 후 순차 검사
+            for(let i=empties.length-1; i>0; i--){
+                const j = Math.floor(Math.random()*(i+1));
+                [empties[i], empties[j]] = [empties[j], empties[i]];
+            }
+
+            for(const k of empties) {
+                const x = k % N; const y = Math.floor(k / N);
+                
+                // 눈(Eye) 보호: 절대로 내 눈을 스스로 메우지 않음
+                if(isEye(g, x, y, c)) continue;
+
+                // 유효성 검사
+                const res = simulate(g, x, y, c, lHash);
+                if(!res.ok) continue;
+
+                // 1. 상대를 잡는 수 (Captured > 0) -> 매우 긴급
+                if(res.captured > 0) return {x,y};
+
+                // 2. 내가 단수에 몰리지 않는지 확인 (Self-Atari 회피)
+                // (단, 상대를 잡는 경우는 위에서 리턴했으므로 안전)
+                const myLibs = getLiberties(res.grid, x, y, c);
+                if(myLibs <= 1) continue; // 자살성 수는 피함 (축 머리 등 제외하면 안전)
+
+                // 3. 적의 단수를 칠 수 있는가? (Atari) -> 긴급
+                let isAtariMove = false;
+                for(const [nx,ny] of neighbors(x,y)) {
+                   if(res.grid[idx(nx,ny)] === 3-c) {
+                       if(getLiberties(res.grid, nx, ny, 3-c) === 1) {
+                           isAtariMove = true; break;
+                       }
+                   }
+                }
+                if(isAtariMove) { urgent.push({x,y}); if(urgent.length>2) break; }
+                else { cands.push({x,y}); }
+                
+                // Rollout 성능을 위해 후보가 충분하면 중단
+                if(cands.length > 5) break; 
+            }
+
+            if(urgent.length > 0) return urgent[Math.floor(Math.random()*urgent.length)];
+            if(cands.length > 0) return cands[Math.floor(Math.random()*cands.length)];
+            return null; // Pass
+        }
+
+        // --- Monte Carlo Rollout ---
+        function playout(startGrid, startHash, startColor) {
+            let g = startGrid.slice();
+            let c = startColor;
+            let h = startHash;
+            let passes = 0;
+            // 시뮬레이션 깊이 제한
+            const maxMoves = N*N * 1.5; 
+            
+            for(let i=0; i<maxMoves; i++) {
+                const move = getSmartMove(g, c, h);
+                if(!move) {
+                    passes++;
+                    if(passes >= 2) break;
+                    c = 3 - c;
+                    continue;
+                }
+                passes = 0;
+                const res = simulate(g, move.x, move.y, c, h);
+                g = res.grid;
+                h = res.newHash;
+                c = 3 - c;
+            }
+
+            // --- Area Scoring (중국식/공통) ---
+            // 집 계산이 복잡하므로, "살아있는 돌의 개수 + 둘러싼 공배"로 계산
+            // Rollout 끝난 상황에서는 보통 경계가 닫힘.
+            // 여기서는 단순하게 "돌의 개수"만 세도 랜덤 시뮬레이션에서는 꽤 정확함
+            let score = 0;
+            for(let i=0; i<N*N; i++) {
+                if(g[i]===color) score++;
+                else if(g[i]===OPP) score--;
+            }
+            return score; // 양수면 AI 승
+        }
+
+        // --- Main MCTS / Search ---
+        function runAI() {
+            // 1. 후보수 생성 (기존 돌 주변 + 화점)
+            const candidates = [];
+            const hasStones = grid.some(v=>v!==0);
+            
+            if(!hasStones) {
+                // 첫수는 화점이나 소목 추천
+                const pts = (N===19)?[3,15,16]:(N===13)?[3,9]:[2,6];
+                for(const px of pts) for(const py of pts) candidates.push({x:px, y:py});
+                if(candidates.length===0) candidates.push({x:Math.floor(N/2),y:Math.floor(N/2)});
+            } else {
+                const checked = new Set();
+                for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+                    if(grid[idx(x,y)]!==0) {
+                        // 돌 주변 탐색
+                        for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++){
+                            const nx=x+dx, ny=y+dy;
+                            if(inside(nx,ny) && grid[idx(nx,ny)]===0){
+                                const k = idx(nx,ny);
+                                if(!checked.has(k)){
+                                    checked.add(k);
+                                    // 눈(Eye) 보호
+                                    if(!isEye(grid, nx, ny, color)) {
+                                        candidates.push({x:nx, y:ny});
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 후보가 없으면 패스
+            if(candidates.length === 0) { postMessage({id, move:null}); return; }
+
+            // 2. 시뮬레이션 수행
+            // 레벨에 따라 시뮬레이션 횟수 조정 (웹 워커 부하 고려)
+            const SIMS = (level===1)? 10 : (level===3)? 100 : 500;
+            let bestMove = null;
+            let bestScore = -Infinity;
+
+            // 시간 제한 (반응성 보장)
+            const startTime = Date.now();
+            const timeLimit = (level >= 4) ? 2000 : 800; 
+
+            // 중요: 후보수 정렬 (가운데 우선, 잡는 수 우선 등 휴리스틱 적용 가능)
+            // 여기서는 단순 셔플
+            for(let i=candidates.length-1; i>0; i--){
+                const j = Math.floor(Math.random()*(i+1));
+                [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+            }
+
+            for(const cand of candidates) {
+                if(Date.now() - startTime > timeLimit) break;
+
+                // 유효성 체크
+                const res = simulate(grid, cand.x, cand.y, color, lastHash);
+                if(!res.ok) continue;
+
+                // 즉시 승리/패배 체크 (단순 휴리스틱)
+                // 만약 상대를 잡으면 가산점
+                let scoreSum = 0;
+                const bonus = (res.captured * 50); 
+                
+                // 내 돌이 단수에 몰리면 감점 (자살 방지)
+                const myLibs = getLiberties(res.grid, cand.x, cand.y, color);
+                const danger = (myLibs === 1) ? -500 : 0; 
+
+                // MCTS 시뮬레이션
+                let wins = 0;
+                // 각 후보당 N회 시뮬레이션
+                const iter = Math.max(1, Math.floor(SIMS / candidates.length));
+                
+                for(let k=0; k<iter; k++) {
+                   const val = playout(res.grid, res.newHash, 3-color); // 상대 차례로 시작
+                   if(val > 0) wins++; 
+                }
+                
+                // 승률 + 휴리스틱 점수
+                const finalScore = (wins / iter * 100) + bonus + danger;
+
+                if(finalScore > bestScore) {
+                    bestScore = finalScore;
+                    bestMove = cand;
+                }
+            }
+
+            postMessage({id, move: bestMove});
+        }
+
+        runAI();
+      };
+    `;
     const blob = new Blob([src], {type:'text/javascript'});
     aiWorker = new Worker(URL.createObjectURL(blob));
     aiWorker.onmessage = (ev)=>{
-      const {id, move} = ev.data; if(id!==aiReqId) return; // stale reply
+      const {id, move} = ev.data; if(id!==aiReqId) return; 
       aiBusy=false; aiStat.textContent='대기';
       if(move){ play(move.x, move.y); } else { pass(); }
     };
@@ -322,11 +519,7 @@
     aiWorker.postMessage({type:'think', id: aiReqId, N, grid, lastHash, level, color: toPlay});
   }
   function maybeAI(){ requestAI(); }
-
-  // ===== Boot =====
   function boot(){ fit(); reset(N); draw(); }
   boot();
 })();
 </script>
-</body>
-</html>
