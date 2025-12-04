@@ -495,7 +495,7 @@
     foundations: [[],[],[],[]],    // 각 무늬별 기초 더미
     cascades: Array.from({length:8}, ()=>[]),
     moves:0,
-    selected:null,                 // {pileType, pileIndex}
+    selected:null,                 // {pileType, pileIndex, cardIndex}
     startTime:null,
     won:false
   };
@@ -554,7 +554,7 @@
     for(let i=0;i<4;i++) game.foundations[i] = [];
     for(let i=0;i<8;i++) game.cascades[i] = [];
 
-    // 8열로 순차 배분 (전형적인 FreeCell 스타일)
+    // 8열로 순차 배분
     for(let i=0;i<deck.length;i++){
       game.cascades[i % 8].push(deck[i]);
     }
@@ -564,7 +564,7 @@
     game.startTime = Date.now();
     game.won = false;
 
-    setStatus('새 게임을 시작했습니다. 좋은 행운을 빕니다 ✨','good');
+    setStatus('새 게임을 시작했습니다. 묶음 이동이 가능합니다.','good');
     render();
   }
 
@@ -581,6 +581,37 @@
       return pile[pile.length-1];
     }
     return null;
+  }
+
+  // --- 묶음 이동 관련 로직 추가 ---
+
+  // 해당 열의 특정 위치(index)부터 끝까지가 유효한 순서(교차 색상, 내림차순)인지 확인
+  function isValidSubStack(pile, startIndex){
+    if(startIndex >= pile.length) return false;
+    for(let i = startIndex; i < pile.length - 1; i++){
+      const curr = pile[i];
+      const next = pile[i+1];
+      if(cardColor(curr) === cardColor(next)) return false; // 색상 같으면 안됨
+      if(curr.rank !== next.rank + 1) return false;         // 숫자 연속 아니면 안됨
+    }
+    return true;
+  }
+
+  // 현재 빈 공간을 고려한 "최대 이동 가능 장수" 계산
+  function getMaxMoveSize(destIsEmptyCascade){
+    let emptyFree = 0;
+    for(const c of game.free) if(!c) emptyFree++;
+
+    let emptyCascades = 0;
+    for(const p of game.cascades) if(p.length === 0) emptyCascades++;
+
+    // 만약 목적지 자체가 빈 열이라면, '경유지'로서의 빈 열 개수에서는 하나 빼야 함
+    if(destIsEmptyCascade && emptyCascades > 0){
+      emptyCascades--;
+    }
+
+    // 공식: (빈 프리셀 + 1) * 2^(빈 열)
+    return (emptyFree + 1) * Math.pow(2, emptyCascades);
   }
 
   function canPlace(card, destType, destIndex){
@@ -605,16 +636,13 @@
     return false;
   }
 
-  // --- (3) "판에 자기보다 작은 숫자 카드가 없으면 자동 기초 이동" 로직 ---
+  // --- 자동 이동 로직 ---
 
-  // 판(열 + FREE)에 있는 모든 카드를 순회
   function forEachBoardCard(callback){
-    // FREE
     for(let i=0;i<game.free.length;i++){
       const card = game.free[i];
       if(card) callback(card, 'free', i);
     }
-    // CASCADE
     for(let i=0;i<game.cascades.length;i++){
       const pile = game.cascades[i];
       for(let j=0;j<pile.length;j++){
@@ -624,7 +652,6 @@
     }
   }
 
-  // 판에 rank보다 작은 랭크(숫자/문자)를 가진 카드가 하나라도 있으면 true
   function existsLowerRankOnBoard(rank){
     let found = false;
     forEachBoardCard(card=>{
@@ -635,68 +662,51 @@
     return found;
   }
 
-  // 해당 카드가 "안전 자동 이동" 조건을 만족하는지
   function canAutoMoveCardToFoundation(card){
     if(!card) return false;
-    // 판 어디에도 자기보다 작은 랭크 카드가 없어야 함 (무늬 상관 없음)
     if(existsLowerRankOnBoard(card.rank)) return false;
     const destIndex = suits.indexOf(card.suit);
     if(destIndex === -1) return false;
     return canPlace(card,'foundation',destIndex);
   }
 
-  // 조건을 만족하는 모든 카드를 기초로 자동 이동
   function autoMoveSafeToFoundation(notify){
     let movedAny = false;
     let again = true;
 
     while(again){
       again = false;
-
-      // 1) FREE에서 먼저 체크
+      // 1) FREE
       for(let i=0;i<4;i++){
         const card = game.free[i];
         if(!card) continue;
-        if(!canAutoMoveCardToFoundation(card)) continue;
-
-        const destIndex = suits.indexOf(card.suit);
-        if(destIndex === -1) continue;
-
-        const moved = tryMove('free', i, 'foundation', destIndex, {silent:true});
-        if(moved){
-          movedAny = true;
-          again = true;
-          break;
+        if(canAutoMoveCardToFoundation(card)){
+          const destIndex = suits.indexOf(card.suit);
+          if(tryMove('free', i, 'foundation', destIndex, {silent:true, cardIndex:0})){
+            movedAny = true; again = true; break;
+          }
         }
       }
       if(again) continue;
 
-      // 2) 아래 열의 맨 위 카드들 체크
+      // 2) Cascades
       for(let i=0;i<game.cascades.length;i++){
         const pile = game.cascades[i];
         if(!pile.length) continue;
         const card = pile[pile.length-1];
-        if(!canAutoMoveCardToFoundation(card)) continue;
-
-        const destIndex = suits.indexOf(card.suit);
-        if(destIndex === -1) continue;
-
-        const moved = tryMove('cascade', i, 'foundation', destIndex, {silent:true});
-        if(moved){
-          movedAny = true;
-          again = true;
-          break;
+        if(canAutoMoveCardToFoundation(card)){
+          const destIndex = suits.indexOf(card.suit);
+          if(tryMove('cascade', i, 'foundation', destIndex, {silent:true, cardIndex: pile.length-1})){
+             movedAny = true; again = true; break;
+          }
         }
       }
     }
 
     if(notify){
       if(movedAny){
-        if(game.won){
-          setStatus('🎉 조건을 만족하는 모든 카드를 기초 더미로 올렸습니다.','good');
-        }else{
-          setStatus('조건을 만족하는 카드를 기초 더미로 자동 이동했습니다.','good');
-        }
+        if(game.won) setStatus('🎉 조건을 만족하는 모든 카드를 기초 더미로 올렸습니다.','good');
+        else setStatus('조건을 만족하는 카드를 기초 더미로 자동 이동했습니다.','good');
       }else{
         setStatus('조건을 만족하는 자동 이동 가능 카드가 없습니다.','');
       }
@@ -705,73 +715,97 @@
 
   function checkWin(){
     let total = 0;
-    for(const pile of game.foundations){
-      total += pile.length;
-    }
+    for(const pile of game.foundations) total += pile.length;
     if(total === 52){
       game.won = true;
       setStatus('🎉 축하합니다! 프리셀을 모두 완료했습니다.','good');
     }
   }
 
+  // --- 핵심 이동 함수 (수정됨) ---
+  // opts.cardIndex : 해당 파일 내에서의 인덱스 (묶음 이동의 시작점)
   function tryMove(srcType, srcIndex, destType, destIndex, opts){
     const silent = opts && opts.silent;
+    let srcCardIndex = (opts && typeof opts.cardIndex === 'number') ? opts.cardIndex : -1;
+
     if(game.won){
-      if(!silent) setStatus('이미 클리어한 게임입니다. 새 게임으로 다시 시작해 주세요.','');
+      if(!silent) setStatus('이미 클리어한 게임입니다.','');
       return false;
     }
     if(srcType === 'foundation'){
-      // 이번 버전에서는 기초 → 다른 곳 이동은 금지
-      if(!silent) setStatus('기초 더미에서는 카드를 꺼낼 수 없도록 되어 있습니다.','bad');
+      if(!silent) setStatus('기초 더미에서는 카드를 꺼낼 수 없습니다.','bad');
       return false;
     }
 
-    const card = getTopCard(srcType, srcIndex);
-    if(!card) return false;
-
-    if(!canPlace(card, destType, destIndex)){
-      if(!silent) setStatus('그 위치로는 규칙상 이동할 수 없습니다.','bad');
-      return false;
-    }
-
-    // 실제 이동
-    if(srcType === 'cascade'){
+    // 1. 소스 카드(들) 특정
+    let cardsToMove = [];
+    if(srcType === 'free'){
+      if(!game.free[srcIndex]) return false;
+      cardsToMove = [ game.free[srcIndex] ];
+    } else if(srcType === 'cascade'){
       const pile = game.cascades[srcIndex];
-      if(!pile.length || pile[pile.length-1] !== card){
-        if(!silent) setStatus('지금은 맨 위 카드만 이동할 수 있습니다.','');
+      if(!pile.length) return false;
+      // 인덱스가 지정 안됐으면 맨 위 카드
+      if(srcCardIndex === -1) srcCardIndex = pile.length - 1;
+      
+      // 묶음 유효성 검사
+      if(!isValidSubStack(pile, srcCardIndex)){
+        if(!silent) setStatus('선택한 묶음이 순서대로 정렬되어 있지 않습니다.','bad');
         return false;
       }
-      pile.pop();
-    }else if(srcType === 'free'){
-      if(!game.free[srcIndex]){
+      cardsToMove = pile.slice(srcCardIndex);
+    }
+
+    const headCard = cardsToMove[0]; // 이동하려는 묶음의 가장 아래(숫자가 큰) 카드
+
+    // 2. 목적지 착수 가능 여부 확인
+    // (묶음인 경우 headCard만 목적지 룰에 맞으면 됨. 나머지는 이미 소스에서 검증됨)
+    if(!canPlace(headCard, destType, destIndex)){
+      if(!silent) setStatus('규칙상 그곳에 놓을 수 없습니다.','bad');
+      return false;
+    }
+
+    // 3. 묶음 이동 시 용량 제한 확인 (Cascade -> Cascade 인 경우에만)
+    if(srcType === 'cascade' && destType === 'cascade' && cardsToMove.length > 1){
+      const destPile = game.cascades[destIndex];
+      const max = getMaxMoveSize(destPile.length === 0);
+      if(cardsToMove.length > max){
+        if(!silent) setStatus(`빈 공간 부족! 현재 최대 ${max}장까지만 한 번에 이동 가능합니다.`, 'bad');
         return false;
       }
+    }
+    // Cascade -> Free/Foundation 인데 여러 장을 보내려는 경우 차단
+    if(cardsToMove.length > 1 && (destType === 'free' || destType === 'foundation')){
+       if(!silent) setStatus('한 번에 한 장만 올릴 수 있습니다.', 'bad');
+       return false;
+    }
+
+    // 4. 실제 데이터 이동 실행
+    if(srcType === 'cascade'){
+      // 해당 인덱스부터 끝까지 잘라냄
+      game.cascades[srcIndex].splice(srcCardIndex);
+    } else if(srcType === 'free'){
       game.free[srcIndex] = null;
     }
 
     if(destType === 'cascade'){
-      game.cascades[destIndex].push(card);
-    }else if(destType === 'free'){
-      game.free[destIndex] = card;
-    }else if(destType === 'foundation'){
-      game.foundations[destIndex].push(card);
+      // 묶음 그대로 push
+      game.cascades[destIndex].push(...cardsToMove);
+    } else if(destType === 'free'){
+      game.free[destIndex] = headCard;
+    } else if(destType === 'foundation'){
+      game.foundations[destIndex].push(headCard);
     }
 
-    // 이동 수는 "직접 한 이동"만 카운트 (silent 이동은 제외)
-    if(!silent){
-      game.moves++;
-    }
-
+    if(!silent) game.moves++;
     game.selected = null;
-
-    if(!silent) setStatus('카드를 이동했습니다.','good');
+    
+    if(!silent) setStatus('카드를 이동했습니다.', 'good');
     checkWin();
 
-    // 수동 이동 이후, 조건을 만족하는 카드들을 자동으로 기초로 올리기
     if(!silent){
       autoMoveSafeToFoundation(false);
     }
-
     return true;
   }
 
@@ -780,10 +814,12 @@
     el.classList.add('card');
     el.classList.add(cardColor(card)==='red' ? 'red' : 'black');
 
+    // 선택된 카드 하이라이트 (묶음인 경우 해당 카드만 표시 or 묶음 전체 로직)
+    // 여기서는 "클릭한 카드"만 선택 표시 (UX상 직관적)
     if(game.selected &&
        game.selected.pileType === pileType &&
        game.selected.pileIndex === pileIndex &&
-       isTop){
+       game.selected.cardIndex === cardIndex){
       el.classList.add('selected');
     }
 
@@ -801,7 +837,7 @@
     `;
 
     el.onclick = onCardClick;
-    el.ondblclick = onCardDoubleClick; // (2) 더블클릭 → FREE 칸 자동 이동
+    el.ondblclick = onCardDoubleClick;
 
     return el;
   }
@@ -848,7 +884,7 @@
       pile.forEach((card, cardIndex)=>{
         const isTop = cardIndex === pile.length-1;
         const cardEl = createCardElement(card,'cascade',index,cardIndex,isTop);
-        cardEl.style.top = (cardIndex * 24) + 'px';
+        cardEl.style.top = (cardIndex * 24) + 'px'; // 겹침 간격
         body.appendChild(cardEl);
       });
     });
@@ -868,7 +904,6 @@
     handleCardClick(pileType, pileIndex, cardIndex);
   }
 
-  // (2) 카드 더블클릭 → 비어 있는 FREE 칸으로 자동 이동
   function onCardDoubleClick(ev){
     ev.stopPropagation();
     const el = ev.currentTarget;
@@ -876,42 +911,24 @@
     const pileIndex = Number(el.dataset.pileIndex);
     const cardIndex = Number(el.dataset.cardIndex);
 
-    // 기초 더미에서는 꺼낼 수 없음
-    if(pileType === 'foundation'){
-      setStatus('기초 더미에서는 카드를 꺼낼 수 없습니다.','bad');
-      return;
-    }
+    if(pileType === 'foundation'){ return; }
 
-    // 열(cascade)의 경우, 맨 위 카드만 더블클릭 이동 허용
+    // 더블클릭 자동이동은 1장일 때만 (직관성 위해)
     if(pileType === 'cascade'){
       const pile = game.cascades[pileIndex];
-      if(cardIndex !== pile.length-1){
-        setStatus('지금은 맨 위 카드만 이동할 수 있습니다.','');
-        return;
-      }
+      if(cardIndex !== pile.length-1) return; // 맨 위 카드만
     }
 
-    // FREE → FREE 더블클릭은 아무 동작 없음
-    if(pileType === 'free'){
-      return;
-    }
-
-    // 비어 있는 FREE 칸 찾기
+    // 빈 FREE 칸 찾기
     let targetFree = -1;
     for(let i=0;i<game.free.length;i++){
-      if(!game.free[i]){
-        targetFree = i;
-        break;
-      }
+      if(!game.free[i]){ targetFree = i; break; }
     }
-
     if(targetFree === -1){
       setStatus('비어 있는 FREE 칸이 없습니다.','bad');
       return;
     }
-
-    const moved = tryMove(pileType, pileIndex, 'free', targetFree);
-    if(moved){
+    if(tryMove(pileType, pileIndex, 'free', targetFree, {cardIndex})){
       render();
     }
   }
@@ -919,98 +936,112 @@
   function handleCardClick(pileType, pileIndex, cardIndex){
     const sel = game.selected;
 
+    // 1. 선택된 카드가 없을 때 (소스 선택)
     if(!sel){
-      // 첫 선택
       if(pileType === 'foundation'){
-        setStatus('이번 버전에서는 기초 더미에서 카드를 다시 꺼낼 수 없게 해 두었습니다.','bad');
+        setStatus('기초 더미는 선택할 수 없습니다.', 'bad');
         return;
       }
+      
+      // Cascade에서는 중간 카드도 선택 가능하지만, "유효한 묶음"이어야 함
       if(pileType === 'cascade'){
         const pile = game.cascades[pileIndex];
-        if(cardIndex !== pile.length-1){
-          setStatus('지금은 맨 위 카드만 선택/이동할 수 있습니다.','');
-          return;
+        // 선택한 카드부터 끝까지 유효한 시퀀스인지 검사
+        if(!isValidSubStack(pile, cardIndex)){
+           setStatus('선택한 카드 위쪽이 정렬되어 있지 않아 묶음 이동할 수 없습니다.', 'bad');
+           return;
         }
       }
-      game.selected = {pileType, pileIndex};
-      setStatus('이동할 목적지를 클릭하세요.','');
+      
+      game.selected = {pileType, pileIndex, cardIndex};
+      setStatus('목적지를 선택하세요.', '');
       render();
       return;
     }
 
-    // 같은 칸 다시 클릭 → 선택 해제
+    // 2. 이미 선택된 상태에서 다시 클릭
+    
+    // 같은 카드(혹은 같은 더미의 어딘가) 클릭 -> 선택 해제/변경
     if(sel.pileType === pileType && sel.pileIndex === pileIndex){
+      // 같은 더미의 다른 유효한 카드 클릭 시 변경
+      if(pileType === 'cascade' && cardIndex !== sel.cardIndex){
+         const pile = game.cascades[pileIndex];
+         if(isValidSubStack(pile, cardIndex)){
+           game.selected = {pileType, pileIndex, cardIndex};
+           setStatus('선택 대상을 변경했습니다.', '');
+           render();
+           return;
+         }
+      }
       game.selected = null;
-      setStatus('선택을 해제했습니다.','');
+      setStatus('선택을 해제했습니다.', '');
       render();
       return;
     }
 
-    const moved = tryMove(sel.pileType, sel.pileIndex, pileType, pileIndex);
-    if(moved){
+    // 다른 곳 클릭 -> 이동 시도
+    // 목적지 클릭 시 cardIndex는 중요하지 않음 (목적지 더미 전체가 대상)
+    if(tryMove(sel.pileType, sel.pileIndex, pileType, pileIndex, {cardIndex: sel.cardIndex})){
       render();
-    }else{
-      // 이동 실패 시, 조건에 맞으면 선택 대상을 변경
-      if(pileType === 'cascade'){
-        const pile = game.cascades[pileIndex];
-        if(cardIndex === pile.length-1){
-          game.selected = {pileType, pileIndex};
-          setStatus('선택 대상을 바꾸었습니다.','');
-          render();
-        }
-      }else if(pileType === 'free'){
-        game.selected = {pileType, pileIndex};
-        setStatus('선택 대상을 바꾸었습니다.','');
-        render();
+    } else {
+      // 이동 실패 시, 만약 클릭한 곳이 유효한 소스라면 선택 변경 편의 제공
+      if(pileType === 'cascade' || pileType === 'free'){
+         // (검증 로직 생략하고 단순 편의상 변경 허용 시도)
+         const pile = (pileType==='cascade') ? game.cascades[pileIndex] : [game.free[pileIndex]];
+         if(pileType==='free' && !game.free[pileIndex]) return; // 빈 프리셀 클릭은 이동 시도만
+
+         // 유효한 묶음이면 선택 변경
+         if(pileType==='cascade' && !isValidSubStack(pile, cardIndex)) return;
+         
+         game.selected = {pileType, pileIndex, cardIndex};
+         setStatus('이동 불가. 대신 선택 대상을 변경했습니다.', '');
+         render();
       }
     }
   }
 
+  // 빈 공간(Pile 자체) 클릭 처리
   function onPileClick(ev){
     const pileEl = ev.currentTarget;
     const pileType = pileEl.dataset.pileType;
-    const pileIndex = Number(pileEl.dataset.index);
+    const pileIndex = Number(el.dataset.index || pileEl.getAttribute('data-index')); // dataset 호환성
     const sel = game.selected;
 
     if(!sel){
-      setStatus('먼저 옮길 카드를 클릭해 선택해 주세요.','');
+      // 빈 공간 클릭은 무시 (카드가 없으므로)
       return;
     }
 
-    // 같은 칸 → 선택 해제
+    // 같은 곳 클릭 시 해제
     if(sel.pileType === pileType && sel.pileIndex === pileIndex){
       game.selected = null;
-      setStatus('선택을 해제했습니다.','');
+      setStatus('선택 해제', '');
       render();
       return;
     }
 
-    const moved = tryMove(sel.pileType, sel.pileIndex, pileType, pileIndex);
-    if(moved){
+    // 이동 시도
+    if(tryMove(sel.pileType, sel.pileIndex, pileType, pileIndex, {cardIndex: sel.cardIndex})){
       render();
     }
   }
 
-  // "기초로 자동 이동" 버튼 → (3)의 안전 자동 이동만 수행
   function autoMoveToFoundation(){
     autoMoveSafeToFoundation(true);
     render();
   }
 
-  // 이벤트 바인딩
+  // 이벤트
   allPileEls.forEach(el=>{
     el.onclick = onPileClick;
   });
-
   btnNew.addEventListener('click', newGame);
   btnAuto.addEventListener('click', autoMoveToFoundation);
 
-  // 타이머 갱신
   setInterval(updateHUD, 1000);
-
-  // 시작 시 자동으로 새 게임 한번 실행
   newGame();
 })();
 </script>
 </body>
 </html>
+
