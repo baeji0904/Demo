@@ -1,525 +1,799 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Pro Baduk AI - Web Version</title>
+<style>
+  :root {
+    --bg: #0e1220;
+    --ink: #e9edff;
+    --muted: #9aa3c8;
+    --panel: #171a2f;
+    --accent: #7aa2ff;
+    --board-bg: #dcb35c;
+    --board-line: #000;
+  }
+  * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    height: 100%; overflow: hidden;
+  }
+  .wrap {
+    display: flex; flex-direction: column;
+    height: 100%; max-width: 800px; margin: 0 auto; padding: 10px;
+  }
+  header {
+    flex: 0 0 auto;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  h1 { font-size: 18px; margin: 0; font-weight: 700; color: var(--accent); }
+  
+  /* HUD & Controls */
+  .hud {
+    flex: 0 0 auto;
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    background: var(--panel); padding: 8px 12px; border-radius: 12px;
+    margin-bottom: 8px; font-size: 13px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--muted);
+  }
+  .tag strong { color: var(--ink); font-weight: 600; }
+  select {
+    background: #242a49; color: white; border: 1px solid #3a426b;
+    border-radius: 6px; padding: 2px 6px; font-size: 12px; outline: none;
+  }
+
+  /* Board Area */
+  .board-container {
+    flex: 1 1 auto;
+    display: flex; justify-content: center; align-items: center;
+    position: relative;
+    background: #1a1d33; border-radius: 12px;
+    overflow: hidden;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+  }
+  canvas {
+    border-radius: 4px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    background-color: #dcb35c; /* 나무색 fallback */
+  }
+
+  /* Bottom Controls */
+  .controls {
+    flex: 0 0 auto;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+    margin-top: 8px;
+  }
+  .btn {
+    background: #242a49; color: var(--ink); border: 1px solid #343b61;
+    border-radius: 8px; padding: 12px 0; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn:active { background: #1b203a; transform: translateY(1px); }
+  .btn-primary { background: var(--accent); color: #000; border: none; }
+  .btn-danger { color: #ff8fa3; }
+
+  /* Utilities */
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+  #status { margin-left: auto; color: var(--accent); font-weight: bold; animation: fade 2s forwards; }
+  input[type="file"] { display: none; }
+
+  /* Modal/Popup for Score */
+  .toast {
+    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.85); color: white; padding: 10px 20px;
+    border-radius: 20px; font-size: 14px; pointer-events: none;
+    opacity: 0; transition: opacity 0.3s; z-index: 99;
+  }
+  .toast.show { opacity: 1; }
+
+  @keyframes fade { 0%{opacity:1} 90%{opacity:1} 100%{opacity:0} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Baduk AI</h1>
+    <span class="tag">
+      <select id="modeSel">
+        <option value="ai" selected>1인 (vs AI)</option>
+        <option value="pvp">2인 대전</option>
+      </select>
+    </span>
+  </header>
+
+  <div class="hud">
+    <span class="tag">판: 
+      <select id="sizeSel">
+        <option value="9">9줄</option>
+        <option value="13">13줄</option>
+        <option value="19" selected>19줄</option>
+      </select>
+    </span>
+    <span class="tag">AI: 
+      <select id="lvlSel">
+        <option value="1">초급</option>
+        <option value="3" selected>중급</option>
+        <option value="5">고급</option>
+      </select>
+    </span>
+    <span class="tag">내 돌: 
+      <select id="colorSel">
+        <option value="1" selected>흑</option>
+        <option value="2">백</option>
+      </select>
+    </span>
+    <span class="tag" style="margin-left:8px;">차례: <strong id="turn" style="color:#7aa2ff">흑</strong></span>
+    <div id="status"></div>
+  </div>
+  
+  <div class="hud" style="justify-content: space-between;">
+    <span class="tag">흑 사석: <strong id="capB">0</strong></span>
+    <span class="tag">백 사석: <strong id="capW">0</strong></span>
+    <span class="tag">AI 상태: <strong id="aiStat">대기</strong></span>
+  </div>
+
+  <div class="board-container">
+    <canvas id="board"></canvas>
+    <div id="toast" class="toast">메시지</div>
+  </div>
+
+  <div class="controls">
+    <button id="btn-undo" class="btn">무르기</button>
+    <button id="btn-pass" class="btn">패스</button>
+    <button id="btn-score" class="btn">계가</button>
+    <label class="btn" for="file-open">열기</label>
+    <button id="btn-save" class="btn btn-primary">저장</button>
+    <input id="file-open" type="file" accept=".sgf,.txt" />
+  </div>
+  <button id="btn-reset" class="btn btn-danger" style="margin-top:6px; width:100%">새 판 시작</button>
+
+  <div id="aria-live" class="sr-only" aria-live="polite"></div>
+</div>
+
 <script>
 (function(){
   'use strict';
-  // ===== Elements =====
+
+  // --- Configuration ---
+  const CONFIG = {
+    colors: {
+      bg: '#DCB35C', // Wood color
+      line: '#000000',
+      black: '#000000',
+      white: '#FFFFFF',
+      lastMove: '#ef4444',
+      hover: 'rgba(0,0,0,0.3)'
+    }
+  };
+
+  // --- Elements ---
   const cvs = document.getElementById('board');
   const ctx = cvs.getContext('2d');
-  const DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
-  const turnEl = document.getElementById('turn');
-  const capBEl = document.getElementById('capB');
-  const capWEl = document.getElementById('capW');
-  const statEl = document.getElementById('status');
-  const sizeSel = document.getElementById('sizeSel');
-  const modeSel = document.getElementById('modeSel');
-  const lvlSel = document.getElementById('lvlSel');
-  const colorSel = document.getElementById('colorSel');
-  const confirmToggle = document.getElementById('confirmToggle');
-  const aiStat = document.getElementById('aiStat');
-  const live = document.getElementById('aria-live');
-  const btnSave = document.getElementById('btn-save');
-  const fileOpen = document.getElementById('file-open');
+  const els = {
+    turn: document.getElementById('turn'),
+    capB: document.getElementById('capB'),
+    capW: document.getElementById('capW'),
+    status: document.getElementById('status'),
+    aiStat: document.getElementById('aiStat'),
+    toast: document.getElementById('toast'),
+    size: document.getElementById('sizeSel'),
+    mode: document.getElementById('modeSel'),
+    lvl: document.getElementById('lvlSel'),
+    color: document.getElementById('colorSel'),
+    live: document.getElementById('aria-live')
+  };
 
-  // ===== Game State =====
-  let N = 19; 
-  let grid = new Array(N*N).fill(0); // 0 empty, 1 black, 2 white
-  let toPlay = 1; // 1=B, 2=W
-  let capB = 0, capW = 0; 
-  let lastHash = null; 
-  const undoStack = []; 
-  let hover = null;
+  // --- State ---
+  let N = 19;
+  let grid = [];
+  let toPlay = 1; // 1=Black, 2=White
+  let cap = {b:0, w:0};
+  let history = []; // Undo stack
+  let moves = [];   // For SGF
   let lastMove = null;
-  let pendingMove = null; 
-  let moves = []; 
+  let lastHash = null;
+  let hoverPos = null;
+  let pendingMove = null; // Double tap confirmation
 
-  // Mode & AI
-  let mode = 'ai';   
-  let playerColor = 1; 
-  let level = 3; 
+  // AI Worker
+  let aiWorker = null;
+  let aiReqId = 0;
+  let aiBusy = false;
 
-  // Worker
-  let aiWorker = null; let aiReqId = 0; let aiBusy = false;
+  // --- Helpers ---
+  const idx = (x,y) => y*N + x;
+  const inside = (x,y) => x>=0 && y>=0 && x<N && y<N;
+  const clone = (g) => g.slice();
+  const hash = (g) => g.join('');
+  const neighbors = (x,y) => [[x+1,y],[x-1,y],[x,y+1],[x,y-1]].filter(p=>inside(p[0],p[1]));
 
-  function idx(x,y){ return y*N + x; }
-  function inside(x,y){ return x>=0 && y>=0 && x<N && y<N; }
-  function neighbors(x,y){ return [[x+1,y],[x-1,y],[x,y+1],[x,y-1]].filter(p=>inside(p[0],p[1])); }
-  function cloneGrid(g){ return g.slice(); }
-  function hashGrid(g){ return g.join(''); }
-  function announce(msg){ live.textContent = msg; }
-  function setStatus(msg){ statEl.textContent = msg; clearTimeout(setStatus._t); setStatus._t = setTimeout(()=>{ if(statEl.textContent===msg) statEl.textContent='—'; }, 1800); }
+  function showToast(msg) {
+    els.toast.textContent = msg;
+    els.toast.classList.add('show');
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(()=>els.toast.classList.remove('show'), 2000);
+  }
 
-  // ===== Groups & Liberties =====
-  function groupAtG(g, x, y){
+  // --- Logic: Groups & Liberties ---
+  function getGroup(g, x, y) {
     const color = g[idx(x,y)];
-    if(color===0) return {stones:[], libs:0};
-    const Q=[[x,y]]; const seen=new Set([idx(x,y)]); const stones=[[x,y]]; let libs=0;
-    const libSet = new Set(); // 중복 공배 방지
-    while(Q.length){
-      const [cx,cy]=Q.pop();
-      for(const [nx,ny] of neighbors(cx,cy)){
+    if(color === 0) return {stones:[], libs:0};
+    const stones = [], Q = [[x,y]], seen = new Set([idx(x,y)]);
+    const libSet = new Set();
+    while(Q.length) {
+      const [cx,cy] = Q.pop();
+      stones.push([cx,cy]);
+      for(const [nx,ny] of neighbors(cx,cy)) {
         const v = g[idx(nx,ny)];
-        if(v===0){ libSet.add(idx(nx,ny)); }
-        else if(v===color){ const k=idx(nx,ny); if(!seen.has(k)){ seen.add(k); stones.push([nx,ny]); Q.push([nx,ny]); } }
+        if(v === 0) libSet.add(idx(nx,ny));
+        else if(v === color) {
+          const k = idx(nx,ny);
+          if(!seen.has(k)) { seen.add(k); Q.push([nx,ny]); }
+        }
       }
     }
     return {stones, libs: libSet.size};
   }
 
-  function copyState(){ return {grid: cloneGrid(grid), toPlay, capB, capW, lastHash, lastMove, moves: moves.slice()}; }
-  function restoreState(s){ grid = cloneGrid(s.grid); toPlay = s.toPlay; capB = s.capB; capW = s.capW; lastHash = s.lastHash; lastMove = s.lastMove; moves = s.moves.slice(); }
-
-  // ===== Rules =====
-  function play(x,y, options={}){
+  // --- Core Game Rules ---
+  function playMove(x, y, options={}) {
     if(!inside(x,y)) return false;
-    if(grid[idx(x,y)]!==0){ if(!options.silent) setStatus('이미 돌이 있습니다'); return false; }
+    if(grid[idx(x,y)] !== 0) {
+      if(!options.silent) showToast("이미 돌이 있습니다.");
+      return false;
+    }
 
-    const prev = copyState();
-    
-    // 가착수
-    grid[idx(x,y)] = toPlay; 
+    const nextGrid = clone(grid);
+    nextGrid[idx(x,y)] = toPlay;
     const opp = 3 - toPlay;
+    let capturedStones = 0;
 
-    // 상대 돌 따내기 검사
-    let captured = 0;
-    const deadGroups = [];
-    for(const [nx,ny] of neighbors(x,y)){
-      if(grid[idx(nx,ny)]===opp){
-        const {stones, libs} = groupAtG(grid, nx, ny);
-        if(libs===0){ 
-            deadGroups.push(stones);
-            captured += stones.length; 
+    // 1. Capture Opponent
+    for(const [nx,ny] of neighbors(x,y)) {
+      if(nextGrid[idx(nx,ny)] === opp) {
+        const {stones, libs} = getGroup(nextGrid, nx, ny);
+        if(libs === 0) {
+          for(const [sx,sy] of stones) nextGrid[idx(sx,sy)] = 0;
+          capturedStones += stones.length;
         }
       }
     }
+
+    // 2. Suicide Check
+    if(capturedStones === 0) {
+      const {libs} = getGroup(nextGrid, x, y);
+      if(libs === 0) {
+        if(!options.silent) showToast("자살수 금지");
+        return false;
+      }
+    }
+
+    // 3. Ko Check
+    const newHash = hash(nextGrid);
+    if(lastHash && newHash === lastHash) {
+      if(!options.silent) showToast("패 (동일한 형태 반복 금지)");
+      return false;
+    }
+
+    // Apply Move
+    history.push({grid:clone(grid), toPlay, cap:{...cap}, lastMove, lastHash, moves: [...moves]});
+    grid = nextGrid;
+    if(capturedStones > 0) {
+      if(toPlay === 1) cap.b += capturedStones;
+      else cap.w += capturedStones;
+    }
     
-    // 따내기 실행
-    for(const grp of deadGroups) {
-        for(const [sx,sy] of grp) grid[idx(sx,sy)] = 0;
+    moves.push({c:toPlay, x, y});
+    lastMove = [x,y];
+    lastHash = newHash;
+    toPlay = opp;
+    pendingMove = null;
+
+    if(!options.silent) {
+      updateUI();
+      draw();
+      playSound();
+      // AI Trigger
+      if(els.mode.value === 'ai' && toPlay !== parseInt(els.color.value)) {
+        requestAI();
+      }
     }
-
-    // 자살수 금지 (상대를 따냈으면 자살 아님)
-    if(captured === 0) {
-        const self = groupAtG(grid, x, y);
-        if(self.libs===0){ 
-            restoreState(prev); 
-            if(!options.silent) setStatus('자살 금지수'); 
-            return false; 
-        }
-    }
-
-    // 패(Ko) 검사
-    const h = hashGrid(grid);
-    if(lastHash && h===lastHash){ 
-        restoreState(prev); 
-        if(!options.silent) setStatus('패 규칙 위반'); 
-        return false; 
-    }
-
-    // 실제 착수 처리
-    undoStack.push(prev);
-    if(captured>0){ if(toPlay===1) capB += captured; else capW += captured; }
-    lastHash = h;
-    moves.push({c:toPlay,x,y});
-    toPlay = opp; lastMove = [x,y]; pendingMove=null;
-
-    if(!options.silent){ updateHUD(); draw(); }
     return true;
   }
 
-  function pass(){ setStatus('패스'); lastHash = hashGrid(grid); moves.push({c:toPlay,pass:true}); toPlay = 3 - toPlay; pendingMove=null; updateHUD(); draw(); }
-  function undo(){ if(aiBusy) return; if(undoStack.length===0) return; const s = undoStack.pop(); restoreState(s); pendingMove=null; setStatus('무르기'); updateHUD(); draw(); }
-  function reset(size){ if(size) N = size; grid = new Array(N*N).fill(0); toPlay = 1; capB = 0; capW = 0; lastHash = null; undoStack.length=0; lastMove=null; pendingMove=null; moves=[]; updateHUD(); fit(); draw(); maybeAI(); }
+  function pass() {
+    history.push({grid:clone(grid), toPlay, cap:{...cap}, lastMove, lastHash, moves: [...moves]});
+    moves.push({c:toPlay, pass:true});
+    toPlay = 3 - toPlay;
+    lastHash = hash(grid); // Passing changes state (turn) but not grid, but we update hash context conceptually
+    pendingMove = null;
+    showToast("패스했습니다.");
+    updateUI();
+    draw();
+    if(els.mode.value === 'ai' && toPlay !== parseInt(els.color.value)) {
+      requestAI();
+    }
+  }
 
-  // ===== Scoring (Territory Only for HUD) =====
-  function territoryScoreG(g){
-    const visited = new Array(N*N).fill(false); let terrB = 0, terrW = 0;
-    for(let y=0;y<N;y++)for(let x=0;x<N;x++){
-      const k = idx(x,y); if(visited[k] || g[k]!==0) continue;
-      const Q=[[x,y]]; visited[k]=true; const empties=[[x,y]]; const adj=new Set();
-      while(Q.length){
-        const [cx,cy]=Q.pop();
-        for(const [nx,ny] of neighbors(cx,cy)){
-          const v = g[idx(nx,ny)];
-          if(v===0){ const kk=idx(nx,ny); if(!visited[kk]){ visited[kk]=true; Q.push([nx,ny]); empties.push([nx,ny]); } }
-          else adj.add(v);
+  function undo() {
+    if(aiBusy) return;
+    if(history.length === 0) return;
+    const state = history.pop();
+    grid = state.grid;
+    toPlay = state.toPlay;
+    cap = state.cap;
+    lastMove = state.lastMove;
+    lastHash = state.lastHash;
+    moves = state.moves;
+    pendingMove = null;
+    updateUI();
+    draw();
+  }
+
+  function resetGame(size) {
+    if(size) N = parseInt(size);
+    grid = new Array(N*N).fill(0);
+    toPlay = 1;
+    cap = {b:0, w:0};
+    history = [];
+    moves = [];
+    lastMove = null;
+    lastHash = null;
+    pendingMove = null;
+    updateUI();
+    fitCanvas();
+    draw();
+    
+    // AI starts if player chose White
+    const pColor = parseInt(els.color.value);
+    if(els.mode.value === 'ai' && pColor === 2) {
+      requestAI();
+    }
+  }
+
+  // --- Scoring (Chinese/Area style simplified) ---
+  function calculateScore() {
+    // Simple Flood Fill for territory
+    const visited = new Array(N*N).fill(false);
+    let terr = {b:0, w:0};
+    
+    for(let i=0; i<N*N; i++) {
+      if(grid[i] !== 0 || visited[i]) continue;
+      const region = [], Q = [i];
+      visited[i] = true;
+      let borders = new Set();
+      while(Q.length) {
+        const curr = Q.pop();
+        region.push(curr);
+        const cx = curr%N, cy = Math.floor(curr/N);
+        for(const [nx,ny] of neighbors(cx,cy)) {
+          const v = grid[idx(nx,ny)];
+          if(v === 0 && !visited[idx(nx,ny)]) {
+            visited[idx(nx,ny)] = true;
+            Q.push(idx(nx,ny));
+          } else if(v !== 0) {
+            borders.add(v);
+          }
         }
       }
-      if(adj.size===1){ if(adj.has(1)) terrB += empties.length; else terrW += empties.length; }
+      if(borders.size === 1) {
+        if(borders.has(1)) terr.b += region.length;
+        else terr.w += region.length;
+      }
     }
-    return {terrB, terrW};
-  }
-  function doScore(){ 
-      const {terrB, terrW} = territoryScoreG(grid); 
-      const stonesB = grid.filter(v=>v===1).length; 
-      const stonesW = grid.filter(v=>v===2).length; 
-      const scoreB = stonesB + terrB + capB; 
-      const scoreW = stonesW + terrW + capW + 6.5; 
-      alert(`임시 집계\n흑: ${scoreB} (돌${stonesB}+집${terrB}+사석${capB})\n백: ${scoreW.toFixed(1)} (돌${stonesW}+집${terrW}+사석${capW}+덤6.5)`); 
+
+    const stoneB = grid.filter(x=>x===1).length;
+    const stoneW = grid.filter(x=>x===2).length;
+    // Area scoring: Stones + Territory + Komi
+    const scoreB = stoneB + terr.b + cap.b; // Using captures as bonus for intuitiveness in this ruleset
+    const scoreW = stoneW + terr.w + cap.w + 6.5;
+
+    alert(`[계가 결과]\n\n흑: ${scoreB}집 (돌${stoneB}+집${terr.b}+사석${cap.b})\n백: ${scoreW}집 (돌${stoneW}+집${terr.w}+사석${cap.w}+덤6.5)\n\n${scoreB > scoreW ? '흑 승리!' : '백 승리!'}`);
   }
 
-  // ===== Rendering =====
-  function fit(){ const css = cvs.clientWidth; cvs.width = Math.floor(css*DPR); cvs.height = Math.floor(css*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
-  window.addEventListener('resize', ()=>{ fit(); draw(); });
-  function draw(){
-    ctx.clearRect(0,0,cvs.width,cvs.height);
-    const pad = 30; const S = (cvs.width/DPR - pad*2) / (N-1);
-    ctx.fillStyle = '#2a2b45'; ctx.fillRect(0,0,cvs.width/DPR,cvs.height/DPR);
-    ctx.fillStyle = '#2f2a1f'; ctx.globalAlpha=0.2; ctx.fillRect(pad-12,pad-12,(N-1)*S+24,(N-1)*S+24); ctx.globalAlpha=1;
-    ctx.strokeStyle = '#b88a2a'; ctx.lineWidth = 1.2; ctx.globalAlpha=0.8;
-    for(let i=0;i<N;i++){ const x = pad + i*S; ctx.beginPath(); ctx.moveTo(pad, pad + i*S); ctx.lineTo(pad + (N-1)*S, pad + i*S); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, pad + (N-1)*S); ctx.stroke(); }
-    ctx.globalAlpha=1;
-    const star = (N===19)? [3,9,15] : (N===13? [3,6,9] : [2,4,6]); const starR = 3; ctx.fillStyle = '#b88a2a';
-    for(const a of star) for(const b of star){ const x = pad + a*S, y = pad + b*S; ctx.beginPath(); ctx.arc(x,y,starR,0,Math.PI*2); ctx.fill(); }
-    for(let y=0;y<N;y++)for(let x=0;x<N;x++){
-      const v = grid[idx(x,y)]; if(v===0) continue; const cx = pad + x*S, cy = pad + y*S; const r = S*0.46; const grad = ctx.createRadialGradient(cx-r*0.3, cy-r*0.3, r*0.2, cx, cy, r); if(v===1){ grad.addColorStop(0,'#444'); grad.addColorStop(1,'#111'); } else { grad.addColorStop(0,'#fff'); grad.addColorStop(1,'#ddd'); } ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); if(lastMove && lastMove[0]===x && lastMove[1]===y){ ctx.strokeStyle = '#7aa2ff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx,cy,r*0.5,0,Math.PI*2); ctx.stroke(); } }
-    if(pendingMove){ const [px,py] = pendingMove; if(inside(px,py)){ const cx = pad + px*S, cy = pad + py*S; const r = S*0.46; ctx.globalAlpha = 0.45; const grad = ctx.createRadialGradient(cx-r*0.3, cy-r*0.3, r*0.2, cx, cy, r); if(toPlay===1){ grad.addColorStop(0,'#666'); grad.addColorStop(1,'#222'); } else { grad.addColorStop(0,'#fff'); grad.addColorStop(1,'#ddd'); } ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = '#7aa2ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx,cy,r*0.55,0,Math.PI*2); ctx.stroke(); } }
-    if(hover){ const [hx,hy]=hover; const cx = pad + hx*S, cy = pad + hy*S; const r = S*0.2; ctx.strokeStyle = (toPlay===1? '#7aa2ff' : '#ff9aa2'); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke(); }
-    draw.pad = pad; draw.S = S;
+  // --- Rendering ---
+  function fitCanvas() {
+    const rect = document.querySelector('.board-container').getBoundingClientRect();
+    const size = Math.min(rect.width, rect.height) - 10;
+    const dpr = window.devicePixelRatio || 1;
+    cvs.width = size * dpr;
+    cvs.height = size * dpr;
+    cvs.style.width = size + 'px';
+    cvs.style.height = size + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw.cellSize = size / N;
+    draw.pad = draw.cellSize / 2;
   }
+  
+  function draw() {
+    const {cellSize: S, pad: P} = draw;
+    const W = cvs.width / (window.devicePixelRatio||1);
+    
+    // Background
+    ctx.fillStyle = CONFIG.colors.bg;
+    ctx.fillRect(0, 0, W, W);
 
-  // ===== Input =====
-  function xyFromClient(e){ const rect = cvs.getBoundingClientRect(); const px = (e.touches? e.touches[0].clientX : e.clientX) - rect.left; const py = (e.touches? e.touches[0].clientY : e.clientY) - rect.top; const x = Math.round((px - draw.pad) / draw.S); const y = Math.round((py - draw.pad) / draw.S); const gx = draw.pad + x*draw.S, gy = draw.pad + y*draw.S; const dist = Math.hypot(px - gx, py - gy); const maxSnap = Math.min(14, draw.S*0.35); if(dist > maxSnap) return [Infinity, Infinity]; return [x,y]; }
-  function handleTap(x,y){ if(grid[idx(x,y)]!==0){ setStatus('이미 돌이 있습니다'); return; } if(!confirmToggle || !confirmToggle.checked){ if(play(x,y)) maybeAI(); return; } if(pendingMove && pendingMove[0]===x && pendingMove[1]===y){ const ok = play(x,y); if(ok){ pendingMove = null; maybeAI(); } } else { pendingMove = [x,y]; setStatus('한 번 더 누르면 착수합니다'); draw(); } }
-  cvs.addEventListener('mousemove', (e)=>{ const [x,y]=xyFromClient(e); hover = (inside(x,y) ? [x,y] : null); draw(); });
-  cvs.addEventListener('mouseleave', ()=>{ hover=null; draw(); });
-  cvs.addEventListener('click', (e)=>{ if(aiBusy) return; const [x,y]=xyFromClient(e); if(!inside(x,y)) return; if(mode==='ai' && toPlay!==playerColor) return; handleTap(x,y); });
-  cvs.addEventListener('touchstart', (e)=>{ e.preventDefault(); if(aiBusy) return; const [x,y]=xyFromClient(e); if(!inside(x,y)) return; if(mode==='ai' && toPlay!==playerColor) return; handleTap(x,y); }, {passive:false});
-
-  // ===== HUD & SGF =====
-  function updateHUD(){ turnEl.textContent = (toPlay===1? '흑' : '백'); capBEl.textContent = capB; capWEl.textContent = capW; announce(`현재 ${toPlay===1? '흑' : '백'} 차례.`); }
-  document.getElementById('btn-undo').onclick = undo;
-  document.getElementById('btn-pass').onclick = ()=>{ if(aiBusy) return; pass(); maybeAI(); };
-  document.getElementById('btn-score').onclick = doScore;
-  document.getElementById('btn-reset').onclick = ()=> reset(N);
-  sizeSel.onchange = ()=> { reset(parseInt(sizeSel.value,10)); };
-  modeSel.onchange = ()=>{ mode = modeSel.value; pendingMove=null; draw(); maybeAI(); };
-  lvlSel.onchange = ()=>{ level = parseInt(lvlSel.value,10); };
-  colorSel.onchange = ()=>{ playerColor = parseInt(colorSel.value,10); reset(N); };
-  const ABC = 'abcdefghijklmnopqrstuvwxyz';
-  function xyToSgf(x,y){ return ABC[x] + ABC[y]; }
-  function sgfToXY(s){ return [ABC.indexOf(s[0]), ABC.indexOf(s[1])]; }
-  function exportSGF(){
-    const header = `(;GM[1]FF[4]SZ[${N}]KM[6.5]PB[Black]PW[White]`;
-    const body = moves.map(m=> m.pass? `;${m.c===1?'B':'W'}[]` : `;${m.c===1?'B':'W'}[${xyToSgf(m.x,m.y)}]`).join('');
-    const tail = `)`;
-    const blob = new Blob([header+body+tail], {type:'text/plain'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `game_${N}x${N}.sgf`; a.click(); URL.revokeObjectURL(a.href);
-  }
-  function importSGF(text){
-    const sizeMatch = text.match(/SZ\[(\d+)\]/);
-    if(sizeMatch) { N = parseInt(sizeMatch[1],10); sizeSel.value = String(N); }
-    reset(N);
-    const re = /;([BW])\[([^\]]*)\]/g; let m;
-    while((m=re.exec(text))){
-      const c = (m[1]==='B'?1:2);
-      if(m[2]==='') { toPlay=3-toPlay; moves.push({c,pass:true}); continue; }
-      const [x,y] = sgfToXY(m[2]); play(x,y,{silent:true});
+    // Grid Lines
+    ctx.strokeStyle = CONFIG.colors.line;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for(let i=0; i<N; i++) {
+      const pos = P + i*S;
+      ctx.moveTo(P, pos); ctx.lineTo(W-P, pos);
+      ctx.moveTo(pos, P); ctx.lineTo(pos, W-P);
     }
-    draw(); updateHUD();
-  }
-  btnSave.addEventListener('click', exportSGF);
-  fileOpen.addEventListener('change', async (e)=>{ const f=e.target.files[0]; if(f) importSGF(await f.text()); mode='pvp'; modeSel.value='pvp'; });
+    ctx.stroke();
 
-  // ===== Web Worker (Better AI) =====
-  function makeWorker(){
-    if(aiWorker) aiWorker.terminate();
-    // Improved AI Logic: Smart Playouts + Eye Protection + Area Scoring
-    const src = `
-      self.onmessage = (ev) => {
-        const d = ev.data;
-        if(d.type !== "think") return;
-        const { N, grid, lastHash, level, color, id } = d;
-        const OPP = 3 - color;
-        
-        // --- Helper Functions ---
-        function idx(x,y){ return y*N + x; }
-        function inside(x,y){ return x>=0 && y>=0 && x<N && y<N; }
-        function neighbors(x,y){ 
-          const res=[]; 
-          if(x>0) res.push([x-1,y]); if(x<N-1) res.push([x+1,y]);
-          if(y>0) res.push([x,y-1]); if(y<N-1) res.push([x,y+1]);
-          return res;
+    // Star Points
+    const stars = N===19 ? [3,9,15] : N===13 ? [3,6,9] : [2,6];
+    ctx.fillStyle = CONFIG.colors.line;
+    for(const x of stars) for(const y of stars) {
+      ctx.beginPath();
+      ctx.arc(P+x*S, P+y*S, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // Stones
+    for(let y=0; y<N; y++) for(let x=0; x<N; x++) {
+      const val = grid[idx(x,y)];
+      if(val === 0) continue;
+      drawStone(x, y, val, S, P);
+    }
+
+    // Last Move Marker
+    if(lastMove) {
+      const [lx, ly] = lastMove;
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(P+lx*S, P+ly*S, S*0.2, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    // Pending Move (Ghost)
+    if(pendingMove) {
+      const [px, py] = pendingMove;
+      ctx.globalAlpha = 0.5;
+      drawStone(px, py, toPlay, S, P);
+      ctx.globalAlpha = 1.0;
+      // Target Reticle
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(P+px*S, P+py*S, S*0.48, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+
+  function drawStone(x, y, c, S, P) {
+    const cx = P + x*S;
+    const cy = P + y*S;
+    const r = S * 0.45;
+    
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    
+    const grad = ctx.createRadialGradient(cx-r*0.3, cy-r*0.3, r*0.1, cx, cy, r);
+    if(c === 1) { // Black
+      grad.addColorStop(0, '#444');
+      grad.addColorStop(1, '#000');
+    } else { // White
+      grad.addColorStop(0, '#fff');
+      grad.addColorStop(1, '#ddd');
+    }
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  function playSound() {
+    // Optional: Add AudioContext implementation here
+  }
+
+  // --- Input ---
+  function getXY(e) {
+    const r = cvs.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+    const {cellSize: S, pad: P} = draw;
+    const gx = Math.round((x - P) / S);
+    const gy = Math.round((y - P) / S);
+    return {x:gx, y:gy};
+  }
+
+  function handleInput(e) {
+    if(aiBusy) return;
+    if(els.mode.value === 'ai' && toPlay !== parseInt(els.color.value)) return;
+    
+    e.preventDefault();
+    const {x, y} = getXY(e);
+    
+    // Double Tap Logic
+    if(pendingMove && pendingMove[0]===x && pendingMove[1]===y) {
+      playMove(x, y);
+    } else {
+      if(inside(x,y) && grid[idx(x,y)]===0) {
+        pendingMove = [x,y];
+        draw();
+        showToast("한 번 더 눌러 착수");
+      } else {
+        pendingMove = null;
+        draw();
+      }
+    }
+  }
+
+  cvs.addEventListener('mousedown', handleInput);
+  cvs.addEventListener('touchstart', handleInput, {passive:false});
+  window.addEventListener('resize', ()=>{ fitCanvas(); draw(); });
+
+  // --- UI Updates ---
+  function updateUI() {
+    els.turn.textContent = toPlay===1 ? '흑(Black)' : '백(White)';
+    els.turn.style.color = toPlay===1 ? '#555' : '#fff';
+    els.capB.textContent = cap.b;
+    els.capW.textContent = cap.w;
+  }
+
+  // --- SGF Import/Export ---
+  const ABC = "abcdefghijklmnopqrstuvwxyz";
+  function exportSGF() {
+    let sgf = `(;GM[1]FF[4]SZ[${N}]KM[6.5]PB[Black]PW[White]`;
+    moves.forEach(m => {
+      const xy = m.pass ? "" : (ABC[m.x] + ABC[m.y]);
+      sgf += `;${m.c===1?'B':'W'}[${xy}]`;
+    });
+    sgf += ")";
+    const blob = new Blob([sgf], {type: "text/plain"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `baduk_${Date.now()}.sgf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importSGF(text) {
+    try {
+      // Basic Parser
+      const szMatch = text.match(/SZ\[(\d+)\]/);
+      if(szMatch) {
+        const newSize = parseInt(szMatch[1]);
+        els.size.value = newSize;
+        resetGame(newSize);
+      } else {
+        resetGame(19);
+      }
+
+      const regex = /;([BW])\[([a-z]*)\]/gi;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const c = match[1].toUpperCase() === 'B' ? 1 : 2;
+        const coords = match[2];
+        if(coords === "") {
+          pass();
+        } else {
+          const x = ABC.indexOf(coords[0]);
+          const y = ABC.indexOf(coords[1]);
+          // Force play without AI
+          if(grid[idx(x,y)] === 0) {
+             // Direct manipulation to bypass checks if needed, but safe play is better
+             const nextGrid = clone(grid);
+             nextGrid[idx(x,y)] = c;
+             // (Skipping capture logic for speed in simple import, but for accuracy we should run full logic)
+             // Running full logic:
+             toPlay = c; // Sync turn
+             playMove(x,y,{silent:true});
+          }
         }
-        function hashGrid(g){ return g.join(''); }
+      }
+      // Set turn to next player
+      toPlay = (moves.length > 0) ? (3 - moves[moves.length-1].c) : 1;
+      updateUI();
+      draw();
+      showToast("SGF 파일을 불러왔습니다.");
+    } catch(e) {
+      alert("SGF 파싱 실패");
+    }
+  }
 
-        // --- Logic: Liberties & Groups ---
-        function getLiberties(g, x, y, c) {
-          const stack = [[x,y]]; const seen = new Set([idx(x,y)]); let libs = 0;
-          const libSet = new Set();
-          while(stack.length) {
-            const [cx, cy] = stack.pop();
-            for(const [nx, ny] of neighbors(cx, cy)) {
-              const v = g[idx(nx,ny)];
-              if(v === 0) libSet.add(idx(nx,ny));
-              else if(v === c) {
-                const k = idx(nx,ny);
-                if(!seen.has(k)) { seen.add(k); stack.push([nx,ny]); }
+  document.getElementById('file-open').addEventListener('change', (e)=>{
+    const f = e.target.files[0];
+    if(f) {
+      const r = new FileReader();
+      r.onload = (ev) => importSGF(ev.target.result);
+      r.readAsText(f);
+    }
+  });
+
+  // --- Web Worker AI (The Smart One) ---
+  function initAI() {
+    const workerCode = `
+    self.onmessage = function(e) {
+      const {id, grid, N, color, level, lastHash} = e.data;
+      
+      // --- AI Helper Functions ---
+      const idx = (x,y) => y*N + x;
+      const inside = (x,y) => x>=0 && y>=0 && x<N && y<N;
+      const neighbors = (x,y) => [[x+1,y],[x-1,y],[x,y+1],[x,y-1]].filter(p=>inside(p[0],p[1]));
+      
+      function getLibs(g, x, y, c) {
+        const stack=[[x,y]], seen=new Set([idx(x,y)]);
+        const libs=new Set();
+        while(stack.length){
+          const [cx,cy]=stack.pop();
+          for(const [nx,ny] of neighbors(cx,cy)){
+            const v=g[idx(nx,ny)];
+            if(v===0) libs.add(idx(nx,ny));
+            else if(v===c && !seen.has(idx(nx,ny))){
+              seen.add(idx(nx,ny)); stack.push([nx,ny]);
+            }
+          }
+        }
+        return libs.size;
+      }
+
+      function isEye(g, x, y, c) {
+        for(const [nx,ny] of neighbors(x,y)) if(g[idx(nx,ny)]!==c) return false;
+        let diag=0, my=0;
+        [[x-1,y-1],[x+1,y-1],[x-1,y+1],[x+1,y+1]].forEach(([dx,dy])=>{
+          if(!inside(dx,dy)) { diag++; my++; }
+          else { diag++; if(g[idx(dx,dy)]===c) my++; }
+        });
+        return my >= 3;
+      }
+
+      function simulate(g, x, y, c) {
+        if(g[idx(x,y)]!==0) return {ok:false};
+        const ng = g.slice(); ng[idx(x,y)] = c;
+        const opp = 3-c;
+        let caps = 0;
+        for(const [nx,ny] of neighbors(x,y)){
+          if(ng[idx(nx,ny)]===opp && getLibs(ng,nx,ny,opp)===0){
+            // Remove group
+            const Q=[[nx,ny]], seen=new Set([idx(nx,ny)]);
+            ng[idx(nx,ny)]=0; caps++;
+            while(Q.length){
+              const [cx,cy]=Q.pop();
+              for(const [ax,ay] of neighbors(cx,cy)){
+                if(ng[idx(ax,ay)]===opp && !seen.has(idx(ax,ay))){
+                   seen.add(idx(ax,ay)); ng[idx(ax,ay)]=0; caps++; Q.push([ax,ay]);
+                }
               }
             }
           }
-          return libSet.size;
+        }
+        if(caps===0 && getLibs(ng,x,y,c)===0) return {ok:false}; // Suicide
+        return {ok:true, grid:ng, caps};
+      }
+
+      // --- Main Thinking Logic ---
+      const candidates = [];
+      const movesToCheck = [];
+      
+      // 1. Gather Candidate Moves (Global or Local to stones)
+      const hasStones = grid.some(v=>v!==0);
+      for(let y=0; y<N; y++) for(let x=0; x<N; x++) {
+        if(grid[idx(x,y)] === 0) {
+           // Eye check: Never fill own eye
+           if(isEye(grid, x, y, color)) continue;
+           
+           let priority = 0;
+           // Proximity heuristic
+           if(hasStones) {
+             let close = false;
+             for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++) {
+               if(inside(x+dx, y+dy) && grid[idx(x+dx,y+dy)]!==0) close=true;
+             }
+             if(!close) continue; // Skip far away moves for efficiency
+           } else {
+             // Opening: Star points / 3-4 points
+             const d = Math.min(x, N-1-x) + Math.min(y, N-1-y);
+             if(d >= 4 && d <= 8) priority += 10;
+           }
+           movesToCheck.push({x,y,p:priority});
+        }
+      }
+      
+      if(movesToCheck.length === 0 && !hasStones) movesToCheck.push({x:Math.floor(N/2),y:Math.floor(N/2), p:10});
+
+      // 2. Evaluate Moves
+      let bestScore = -Infinity;
+      let bestMove = null;
+      
+      // Shuffle for variety
+      for(let i=movesToCheck.length-1; i>0; i--){
+         const j = Math.floor(Math.random()*(i+1));
+         [movesToCheck[i],movesToCheck[j]] = [movesToCheck[j],movesToCheck[i]];
+      }
+
+      const limit = level === 1 ? 200 : level === 3 ? 800 : 2000;
+      const start = Date.now();
+
+      for(const m of movesToCheck) {
+        if(Date.now() - start > limit) break;
+
+        const sim = simulate(grid, m.x, m.y, color);
+        if(!sim.ok) continue;
+
+        let score = m.p + Math.random()*5; // Base + Noise
+        
+        // A. Capture Bonus
+        if(sim.caps > 0) score += 500 + sim.caps*10;
+
+        // B. Atari Check (Defense) - If I don't play here, am I in danger?
+        // (Simplified: Does this move increase my liberties?)
+        const libs = getLibs(sim.grid, m.x, m.y, color);
+        if(libs === 1) score -= 300; // Self-Atari (bad)
+        if(libs >= 4) score += 20;
+
+        // C. Atari Attack - Does this move put enemy in Atari?
+        for(const [nx,ny] of neighbors(m.x,m.y)) {
+           if(sim.grid[idx(nx,ny)] === 3-color) {
+             if(getLibs(sim.grid, nx, ny, 3-color) === 1) score += 100;
+           }
         }
 
-        // --- Logic: Simulation (Play) ---
-        function simulate(g, x, y, c, lHash) {
-            if(g[idx(x,y)] !== 0) return {ok:false};
-            const ng = g.slice();
-            ng[idx(x,y)] = c;
-            const opp = 3 - c;
-            let captured = 0;
-            // Check captures
-            for(const [nx,ny] of neighbors(x,y)) {
-                if(ng[idx(nx,ny)] === opp) {
-                    const libs = getLiberties(ng, nx, ny, opp);
-                    if(libs === 0) {
-                        // Remove group
-                        const stack=[[nx,ny]]; const seen=new Set([idx(nx,ny)]);
-                        ng[idx(nx,ny)]=0; captured++;
-                        while(stack.length){
-                            const [cx,cy]=stack.pop();
-                            for(const [ax,ay] of neighbors(cx,cy)){
-                                if(ng[idx(ax,ay)]===opp){
-                                    const k=idx(ax,ay);
-                                    if(!seen.has(k)){ seen.add(k); ng[k]=0; captured++; stack.push([ax,ay]); }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // Suicide Check
-            if(captured === 0 && getLiberties(ng, x, y, c) === 0) return {ok:false};
-            // Ko Check (Simple)
-            const newHash = hashGrid(ng);
-            if(lHash && newHash === lHash) return {ok:false, ko:true};
-
-            return {ok:true, grid:ng, captured, newHash};
+        if(score > bestScore) {
+          bestScore = score;
+          bestMove = m;
         }
+      }
 
-        // --- Logic: Eye Protection ---
-        // 자신의 '진짜 집(Eye)'에는 착수하지 않도록 함 (매우 중요)
-        function isEye(g, x, y, c) {
-            // 1. 4방향이 모두 내 돌이거나 벽이어야 함
-            for(const [nx,ny] of neighbors(x,y)) {
-                if(g[idx(nx,ny)] !== c) return false;
-            }
-            // 2. 대각선 검사 (귀/변/중앙에 따라 다름)
-            let diagCount = 0; let myDiag = 0;
-            const diags = [[x-1,y-1],[x+1,y-1],[x-1,y+1],[x+1,y+1]];
-            for(const [dx,dy] of diags) {
-                if(!inside(dx,dy)) { diagCount++; myDiag++; continue; } // 벽은 내편 취급
-                diagCount++;
-                if(g[idx(dx,dy)] === c) myDiag++;
-            }
-            // 진짜 집 조건: 대각선 4개 중 3개 이상이 내 돌(또는 벽)
-            return myDiag >= 3;
-        }
-
-        // --- Logic: Smart Rollout ---
-        // 랜덤이지만, 단수(Atari)를 치거나 내 돌을 살리는 수를 우선함
-        function getSmartMove(g, c, lHash) {
-            const cands = [];
-            const urgent = [];
-            const empties = [];
-            
-            // 보드 전체 스캔 (무거우면 셔플된 인덱스 일부만 스캔)
-            for(let i=0; i<N*N; i++) if(g[i]===0) empties.push(i);
-            
-            // 너무 많으면 랜덤 샘플링 (속도 최적화)
-            // 하지만 초반 포석을 위해 기존 돌 주변 위주로 필터링하면 좋음
-            // 여기서는 단순화하여 랜덤 셔플 후 순차 검사
-            for(let i=empties.length-1; i>0; i--){
-                const j = Math.floor(Math.random()*(i+1));
-                [empties[i], empties[j]] = [empties[j], empties[i]];
-            }
-
-            for(const k of empties) {
-                const x = k % N; const y = Math.floor(k / N);
-                
-                // 눈(Eye) 보호: 절대로 내 눈을 스스로 메우지 않음
-                if(isEye(g, x, y, c)) continue;
-
-                // 유효성 검사
-                const res = simulate(g, x, y, c, lHash);
-                if(!res.ok) continue;
-
-                // 1. 상대를 잡는 수 (Captured > 0) -> 매우 긴급
-                if(res.captured > 0) return {x,y};
-
-                // 2. 내가 단수에 몰리지 않는지 확인 (Self-Atari 회피)
-                // (단, 상대를 잡는 경우는 위에서 리턴했으므로 안전)
-                const myLibs = getLiberties(res.grid, x, y, c);
-                if(myLibs <= 1) continue; // 자살성 수는 피함 (축 머리 등 제외하면 안전)
-
-                // 3. 적의 단수를 칠 수 있는가? (Atari) -> 긴급
-                let isAtariMove = false;
-                for(const [nx,ny] of neighbors(x,y)) {
-                   if(res.grid[idx(nx,ny)] === 3-c) {
-                       if(getLiberties(res.grid, nx, ny, 3-c) === 1) {
-                           isAtariMove = true; break;
-                       }
-                   }
-                }
-                if(isAtariMove) { urgent.push({x,y}); if(urgent.length>2) break; }
-                else { cands.push({x,y}); }
-                
-                // Rollout 성능을 위해 후보가 충분하면 중단
-                if(cands.length > 5) break; 
-            }
-
-            if(urgent.length > 0) return urgent[Math.floor(Math.random()*urgent.length)];
-            if(cands.length > 0) return cands[Math.floor(Math.random()*cands.length)];
-            return null; // Pass
-        }
-
-        // --- Monte Carlo Rollout ---
-        function playout(startGrid, startHash, startColor) {
-            let g = startGrid.slice();
-            let c = startColor;
-            let h = startHash;
-            let passes = 0;
-            // 시뮬레이션 깊이 제한
-            const maxMoves = N*N * 1.5; 
-            
-            for(let i=0; i<maxMoves; i++) {
-                const move = getSmartMove(g, c, h);
-                if(!move) {
-                    passes++;
-                    if(passes >= 2) break;
-                    c = 3 - c;
-                    continue;
-                }
-                passes = 0;
-                const res = simulate(g, move.x, move.y, c, h);
-                g = res.grid;
-                h = res.newHash;
-                c = 3 - c;
-            }
-
-            // --- Area Scoring (중국식/공통) ---
-            // 집 계산이 복잡하므로, "살아있는 돌의 개수 + 둘러싼 공배"로 계산
-            // Rollout 끝난 상황에서는 보통 경계가 닫힘.
-            // 여기서는 단순하게 "돌의 개수"만 세도 랜덤 시뮬레이션에서는 꽤 정확함
-            let score = 0;
-            for(let i=0; i<N*N; i++) {
-                if(g[i]===color) score++;
-                else if(g[i]===OPP) score--;
-            }
-            return score; // 양수면 AI 승
-        }
-
-        // --- Main MCTS / Search ---
-        function runAI() {
-            // 1. 후보수 생성 (기존 돌 주변 + 화점)
-            const candidates = [];
-            const hasStones = grid.some(v=>v!==0);
-            
-            if(!hasStones) {
-                // 첫수는 화점이나 소목 추천
-                const pts = (N===19)?[3,15,16]:(N===13)?[3,9]:[2,6];
-                for(const px of pts) for(const py of pts) candidates.push({x:px, y:py});
-                if(candidates.length===0) candidates.push({x:Math.floor(N/2),y:Math.floor(N/2)});
-            } else {
-                const checked = new Set();
-                for(let y=0;y<N;y++) for(let x=0;x<N;x++){
-                    if(grid[idx(x,y)]!==0) {
-                        // 돌 주변 탐색
-                        for(let dy=-2; dy<=2; dy++) for(let dx=-2; dx<=2; dx++){
-                            const nx=x+dx, ny=y+dy;
-                            if(inside(nx,ny) && grid[idx(nx,ny)]===0){
-                                const k = idx(nx,ny);
-                                if(!checked.has(k)){
-                                    checked.add(k);
-                                    // 눈(Eye) 보호
-                                    if(!isEye(grid, nx, ny, color)) {
-                                        candidates.push({x:nx, y:ny});
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 후보가 없으면 패스
-            if(candidates.length === 0) { postMessage({id, move:null}); return; }
-
-            // 2. 시뮬레이션 수행
-            // 레벨에 따라 시뮬레이션 횟수 조정 (웹 워커 부하 고려)
-            const SIMS = (level===1)? 10 : (level===3)? 100 : 500;
-            let bestMove = null;
-            let bestScore = -Infinity;
-
-            // 시간 제한 (반응성 보장)
-            const startTime = Date.now();
-            const timeLimit = (level >= 4) ? 2000 : 800; 
-
-            // 중요: 후보수 정렬 (가운데 우선, 잡는 수 우선 등 휴리스틱 적용 가능)
-            // 여기서는 단순 셔플
-            for(let i=candidates.length-1; i>0; i--){
-                const j = Math.floor(Math.random()*(i+1));
-                [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-            }
-
-            for(const cand of candidates) {
-                if(Date.now() - startTime > timeLimit) break;
-
-                // 유효성 체크
-                const res = simulate(grid, cand.x, cand.y, color, lastHash);
-                if(!res.ok) continue;
-
-                // 즉시 승리/패배 체크 (단순 휴리스틱)
-                // 만약 상대를 잡으면 가산점
-                let scoreSum = 0;
-                const bonus = (res.captured * 50); 
-                
-                // 내 돌이 단수에 몰리면 감점 (자살 방지)
-                const myLibs = getLiberties(res.grid, cand.x, cand.y, color);
-                const danger = (myLibs === 1) ? -500 : 0; 
-
-                // MCTS 시뮬레이션
-                let wins = 0;
-                // 각 후보당 N회 시뮬레이션
-                const iter = Math.max(1, Math.floor(SIMS / candidates.length));
-                
-                for(let k=0; k<iter; k++) {
-                   const val = playout(res.grid, res.newHash, 3-color); // 상대 차례로 시작
-                   if(val > 0) wins++; 
-                }
-                
-                // 승률 + 휴리스틱 점수
-                const finalScore = (wins / iter * 100) + bonus + danger;
-
-                if(finalScore > bestScore) {
-                    bestScore = finalScore;
-                    bestMove = cand;
-                }
-            }
-
-            postMessage({id, move: bestMove});
-        }
-
-        runAI();
-      };
+      self.postMessage({id, move: bestMove});
+    };
     `;
-    const blob = new Blob([src], {type:'text/javascript'});
+    const blob = new Blob([workerCode], {type: 'application/javascript'});
     aiWorker = new Worker(URL.createObjectURL(blob));
-    aiWorker.onmessage = (ev)=>{
-      const {id, move} = ev.data; if(id!==aiReqId) return; 
-      aiBusy=false; aiStat.textContent='대기';
-      if(move){ play(move.x, move.y); } else { pass(); }
+    aiWorker.onmessage = (e) => {
+      const {id, move} = e.data;
+      if(id !== aiReqId) return;
+      aiBusy = false;
+      els.aiStat.textContent = '대기';
+      if(move) playMove(move.x, move.y);
+      else pass();
     };
   }
-  makeWorker();
 
-  function requestAI(){
-    if(mode!=='ai') return;
-    if(toPlay !== (3-playerColor)) return;
-    aiBusy=true; aiStat.textContent='생각 중…';
+  function requestAI() {
+    if(!aiWorker) initAI();
+    aiBusy = true;
+    els.aiStat.textContent = '생각 중...';
     aiReqId++;
-    aiWorker.postMessage({type:'think', id: aiReqId, N, grid, lastHash, level, color: toPlay});
+    aiWorker.postMessage({
+      id: aiReqId,
+      grid, N, color: toPlay, level: parseInt(els.lvl.value), lastHash
+    });
   }
-  function maybeAI(){ requestAI(); }
-  function boot(){ fit(); reset(N); draw(); }
-  boot();
+
+  // --- Bindings ---
+  document.getElementById('btn-undo').onclick = undo;
+  document.getElementById('btn-pass').onclick = pass;
+  document.getElementById('btn-reset').onclick = () => { if(confirm('정말 새로 시작합니까?')) resetGame(); };
+  document.getElementById('btn-save').onclick = exportSGF;
+  document.getElementById('btn-score').onclick = calculateScore;
+
+  els.size.onchange = () => resetGame(els.size.value);
+  els.color.onchange = () => resetGame(); // Restart to apply color
+  els.mode.onchange = () => {
+    pendingMove = null;
+    draw();
+    if(els.mode.value === 'ai' && toPlay !== parseInt(els.color.value)) requestAI();
+  };
+
+  // --- Boot ---
+  initAI();
+  resetGame(19);
+
 })();
 </script>
+</body>
+</html>
