@@ -10,7 +10,7 @@
   { "title": "장기",     "url": "games/janggi.html",    "thumb": "thumbnail/janggi.jpg", "tags": ["보드","AI"],  "desc": "간단한 장기 대국" },
   { "title": "고누",     "url": "games/gonu.html",    "thumb": "thumbnail/gonu.jpg", "tags": ["보드","AI"],  "desc": "우물/호박 고누" },
   { "title": "테트리스", "url": "games/tetris.html",   "thumb": "thumbnail/tetris.jpg", "tags": ["퍼즐"],       "desc": "고전 테트리스 게임" },
-  { "title": "지뢰찾기", "url": "games/Minesweeper.html",   "thumb": "thumbnail/minesweeper.jpg", "tags": ["퍼즐"],       "desc": "고전 지뢰찾기 게ㅣㅁ" },
+  { "title": "지뢰찾기", "url": "games/Minesweeper.html",   "thumb": "thumbnail/minesweeper.jpg", "tags": ["퍼즐"],       "desc": "고전 지뢰찾기 게임" },
   { "title": "팩맨", "url": "games/pacman.html",   "thumb": "thumbnail/pacman.jpg", "tags": ["퍼즐"],       "desc": "오락실 팩맨" },  
   { "title": "2048",     "url": "games/2048.html",     "thumb": "thumbnail/2048.jpg", "tags": ["퍼즐"],       "desc": "2048 숫자 만들기" },
   { "title": "스네이크",     "url": "games/snake.html",     "thumb": "thumbnail/snake.jpg", "tags": ["퍼즐"],       "desc": "사과 먹기" },
@@ -20,6 +20,7 @@
   { "title": "카드대전",     "url": "games/card/card.html",     "thumb": "thumbnail/card.jpg", "tags": ["퍼즐"],       "desc": "카드대전" },
   { "title": "갤러그",   "url": "games/galaga.html",   "thumb": "thumbnail/galaga.jpg", "tags": ["슈팅"],       "desc": "고전 비행 슈팅 게임" }
 ]
+
 
 
 
